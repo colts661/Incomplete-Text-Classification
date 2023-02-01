@@ -17,7 +17,7 @@ class Data:
     """
     def __init__(
         self, data_dir, dataset, 
-        stem=True, special_tokens=True, 
+        stem=True, 
         random_seed=None, **remove_kwargs
     ):
         """
@@ -39,16 +39,12 @@ class Data:
                 os.mkdir(self.processed_path)
         
         # preprocessing choices
-        self.START, self.END = (
-            ('<START>', '<END>') if special_tokens 
-            else ('', '')
-        )
         self.stem = stem
         self.stemmer = EnglishStemmer().stem if stem else lambda word: word
         self.tokenizer = RegexpTokenizer('\w\w+')
         self.corpus_path = lambda s: os.path.join(
             self.processed_path, 
-            f"{s}_corpus_{'stem' if stem else ''}.pkl"
+            f"{s}_corpus{'_stem' if stem else ''}.pkl"
         )
         self.labels_path = lambda s: os.path.join(
             self.processed_path, 
@@ -75,7 +71,7 @@ class Data:
         Parameters:
         remove_kwargs: keyword arguments for remove_labels
         """
-        print(f'Preprocessing Corpus {self.name}')
+        print(f'Preprocessing Corpus: {self.name}')
         df = pickle.load(open(os.path.join(self.raw_path, "df.pkl"), "rb"))
 
         # tokenize, stem corpus
@@ -84,9 +80,7 @@ class Data:
             .str.lower()
             .apply(lambda s: [
                 self.stemmer(w) 
-                for w in self.tokenizer.tokenize(
-                    f'{self.START} {s} {self.END}'.strip()
-                )
+                for w in self.tokenizer.tokenize(s)
             ])
         )
         
@@ -149,10 +143,11 @@ class Data:
         return f"{'Stemmed' if self.stem else ''} {self.name} Dataset"
 
 if __name__ == '__main__':
+    # run main in `src` folder
     dataset = sys.argv[1]
     d = Data(
-        data_dir='../data',
+        data_dir='../data' if dataset != 'testdata' else '../test',
         dataset=dataset,
-        stem=True,
+        stem=False,
         random_seed=42
     )
