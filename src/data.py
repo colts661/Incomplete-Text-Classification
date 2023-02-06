@@ -140,7 +140,7 @@ class Data:
         )
 
     def __repr__(self):
-        return f"{'Stemmed' if self.stem else ''} {self.name} Dataset"
+        return f"{self.name} Dataset{' (Stemmed)' if self.stem else ''}"
 
 if __name__ == '__main__':
     # run main in `src` folder
