@@ -15,6 +15,7 @@ USER jovyan
 
 RUN pip install numpy==1.22.0
 RUN pip install gensim
+RUN pip install threadpoolctl==3.1.0
 
 # Override command to disable running jupyter notebook at launch
 CMD ["/bin/bash"]
