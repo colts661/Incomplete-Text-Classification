@@ -5,5 +5,6 @@ gensim
 matplotlib==3.5.2
 tqdm==4.64.1
 nltk==3.7
-pandas==1.4.4
+pandas==1.5.2
 python-Levenshtein
+threadpoolct==3.1.0

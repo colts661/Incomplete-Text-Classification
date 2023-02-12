@@ -81,11 +81,11 @@ class Evaluation:
         Map each generated label to a removed label. Duplicates allowed.
         This is the naive mapping.
         """
-        generated_classes = set(self.pending_pred) - set(self.existing_labels)
+        generated_classes = list(set(self.pending_pred) - set(self.existing_labels))
         similarity = pd.DataFrame([
             [self.similarity_func(p, t) for t in self.removed_labels] 
             for p in generated_classes
-        ], index=generated_classes, columns=self.removed_labels)
+        ], index=generated_classes, columns=list(self.removed_labels))
 
         return similarity.dropna(axis=1).idxmax(axis=1).to_dict()
     
