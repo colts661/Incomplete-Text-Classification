@@ -28,26 +28,20 @@ def test() -> None:
     """
     print('Running Test Data Target:')
     testdata = Data('test', 'testdata')
-    testdata.process_corpus()
-    testdata.process_labels(bottom_p=0.5, full_k=1, keep_p=0.5)
+    testdata.process_corpus(remove_stopwords=False)
+    testdata.process_labels(bottom_p=0.5, full_k=1, keep_p=0.6)
     print()
     pprint(testdata.show_statistics())
     print()
     pprint(testdata)
 
-    test_baseline = Baseline_Model(
-        testdata, 
-        data_config={'remove_stopwords': False},
-        label_config={'bottom_p': 0.5, 'full_k': 1, 'keep_p': 0.6}
-    )
-
+    test_baseline = Baseline_Model(testdata)
     test_pred = test_baseline.run(w2v_config={
         'vector_size': 16,
         'epochs': 2,
         'window': 3,
         'min_count': 1
     })
-
     test_baseline.evaluate(test_pred)
     
 

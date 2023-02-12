@@ -15,6 +15,7 @@ from nltk.stem.snowball import EnglishStemmer
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 nltk.download('stopwords', quiet=True)
+nltk.download('punkt', quiet=True)
 
 
 class Data:
