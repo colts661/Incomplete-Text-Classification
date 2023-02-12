@@ -39,7 +39,7 @@ In this project, we aim to design a text classification model that could suggest
 ### Commands
 [**DSMLP Users**]: 
 - The `test` target could be easily run as `python run.py test`.
-- The `experiment` target could be run as `python run.py exp <dataset>`.
+- The `experiment` target could be run as `python run.py exp -d <dataset>`.
 - When prompted from the prompt, insert values by manually inspecting the plots generated in `artifacts/`.
 
 The main script is located in the root directory. It supports 3 targets:
