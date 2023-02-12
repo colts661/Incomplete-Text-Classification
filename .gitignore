@@ -1,5 +1,18 @@
-# data files
-*.pkl
+# notebook
+notebook/
+
+# running artifacts
+artifacts/
+
+# data
+data/processed/*
+!data/processed/README.md
+data/raw/*
+!data/raw/README.md
+
+# testdata
+test/processed/*
+!test/processed/*.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
