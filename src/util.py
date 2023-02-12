@@ -1,5 +1,5 @@
 """
-Utility Functions for Replication
+Utility Functions, Evaluation
 """
 
 from data import *
@@ -7,14 +7,16 @@ import json
 from datetime import datetime
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from sklearn.metrics import f1_score
 from scipy.spatial import distance
-
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 import nltk
-nltk.download('wordnet')
-nltk.download('omw-1.4')
+# nltk.download('wordnet', quiet=True)
+# nltk.download('omw-1.4', quiet=True)
 
 from nltk.corpus import wordnet
 from nltk.stem.snowball import EnglishStemmer
@@ -22,7 +24,7 @@ import gensim.downloader as gensim_api
 
 
 ### config files
-def load_config(path):
+def load_config(path: str) -> dict:
     try:
         with open(path, 'r') as f:
             return json.load(f)
@@ -31,6 +33,10 @@ def load_config(path):
         
 def check_config(config, key):
     return (key not in config) or (not config[key])
+
+def write_config(config: dict, path: str) -> None:
+    with open(path, 'w') as f:
+        json.dump(config, f)
 
 
 ### Metrics
@@ -54,25 +60,44 @@ def wordnet_similarity(u, v):
     return wordnet.synsets(u)[0].wup_similarity(wordnet.synsets(v)[0])
 
 def w2v_cosine_similiarity(model, u, v):
-    stemmer = EnglishStemmer().stem
+    stemmer = EnglishStemmer()
     if u not in model:
         stem_u = stemmer.stem(u)
         if stem_u not in model:
-            print(f'{u} not in vocabulary')
-            return
+            vec_u = composite_w2v_embedding(model, u)
+            if vec_u is None:
+                print(f'{u} not in vocabulary')
+                return
         else:
-            u = stem_u
+            vec_u = model[stem_u]
+    else:
+        vec_u = model[u]
     
     if v not in model:
         stem_v = stemmer.stem(v)
         if stem_v not in model:
-            print(f'{v} not in vocabulary')
-            return
+            vec_v = composite_w2v_embedding(model, v)
+            if vec_v is None:
+                print(f'{v} not in vocabulary')
+                return
         else:
-            v = stem_v
+            vec_v = model[stem_v]
+    else:
+        vec_v = model[v]
     
-    return cosine_similarity(model[u], model[v])
+    return cosine_similarity(vec_u, vec_v)
 
+def composite_w2v_embedding(model, word):
+    stemmer = EnglishStemmer().stem
+    total = []
+    for piece in word.split('_'):
+        if piece not in model:
+            piece = stemmer(piece)
+        if piece in model:
+            total.append(model[piece])
+    if not total:
+        return
+    return np.mean(np.array(total), axis=0)
 
 ### load pre-trained Word2Vec
 def load_w2v_model():
@@ -85,75 +110,28 @@ def load_w2v_model():
     return wv_from_bin
 
 
-### MAIN EVALUATION METHOD
-def evaluate(
-    data: Data, new_class_pred, 
-    similarity_func=None, w2v_model=None,
-    return_sim=False, return_table=False
-):
+### plotting
+def display_vector_2d(reps, centroids=None, pca_dim=100, tsne_perp=30):
     """
-    Evaluate the model based on similarity mapping and macro-F1 score.
-    Assuming all suggested classes can be mapped to removed labels.
-    
-    ---
-    Parameters:
-               data: Data class object
-     new_class_pred: predicted labels of non-existing labels
-    similarity_func: function for similarity score between 2 words,
-                     default cosine Word2Vec similarity
-         return_sim: whether to return mapped similarity, default False
-       return_table: whether to return label and prediction, default False
+    Displays the vector representations in 2D
     """
-    assert len(data.unlabeled_labels) == len(new_class_pred)
-    
-    if similarity_func is None:
-        if w2v_model is None:
-            model = gensim_api.load("word2vec-google-news-300")
-        else:
-            model = w2v_model
-        similarity_func = lambda u, v: w2v_cosine_similiarity(model, u, v)
-    
-    # existing classes evaluation
-    existing_classes = set(data.labeled_labels)
-    existing_idx, existing_pred, existing_label = zip(*[
-        (idx, pred, truth) 
-        for idx, (pred, truth) in enumerate(zip(new_class_pred, data.unlabeled_labels))
-        if pred in existing_classes
-    ])
-    
-    # new class
-    new_classes = set(data.unlabeled_labels) - set(data.labeled_labels)
-    pending_idx, pending_pred, pending_label = zip(*[
-        (idx, pred, truth) 
-        for idx, (pred, truth) in enumerate(zip(new_class_pred, data.unlabeled_labels))
-        if pred not in existing_classes
-    ])
-    
-    # unconstrained mapping
-    suggested_classes = set(pending_pred)
-    similarity = pd.DataFrame([
-        [similarity_func(p, t) for t in new_classes] 
-        for p in suggested_classes
-    ], index=suggested_classes, columns=new_classes)
+    # reduce dimension with PCA
+    pca = PCA(n_components=pca_dim)
+    pca_rep = pca.fit_transform(reps)
 
-    mapping = similarity.idxmax(axis=1).to_dict()
+    # t-SNE visualization transformation
+    tsne = TSNE(n_iter=5000, init='pca', learning_rate='auto', perplexity=tsne_perp)
+    tsne_rep = tsne.fit_transform(pca_rep)
     
-    # combine and evaluate
-    full_idx = list(existing_idx) + list(pending_idx)
-    full_pred = list(existing_pred) + list(pending_pred)
-    full_map = list(existing_pred) + [mapping[pred] for pred in pending_pred]
-    full_label = list(existing_label) + list(pending_label)
-    full_table = pd.DataFrame(
-        {'prediction': full_pred, 'mapping': full_map, 'label': full_label}, 
-        index=full_idx
-    ).sort_index()
-    score = macro_f1(full_map, full_label)
-    
-    if (not return_sim) and (not return_table):
-        return score
-    else:
-        return tuple(
-            [score] + 
-            ([similarity] if return_sim else []) + 
-            ([full_table] if return_table else [])
-        )
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))        
+    ax.scatter(tsne_rep[:, 0], tsne_rep[:, 1], edgecolors='k', c='gray', s=2)
+    if centroids is not None:
+        pca_centroids = pca.transform(centroids)
+        tsne_centroids = tsne.transform(pca_centroids)
+        ax.scatter(tsne_centroids[:, 0], tsne_centroids[:, 1], edgecolors='k', c='red', s=30)
+    ax.set_title('Unconfident Document Representations in 2D')
+    return fig
+
+
+def save_plot(fig, path):
+    fig.savefig(path, transparent=True)
