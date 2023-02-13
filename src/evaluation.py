@@ -60,8 +60,14 @@ class Evaluation:
         """
         Evaluate the existing labels only
         """
-        micro = f1_score(y_true=self.existing_label, y_pred=self.existing_pred, average='micro')
-        macro = f1_score(y_true=self.existing_label, y_pred=self.existing_pred, average='macro')
+        micro = f1_score(
+            y_true=self.existing_label, y_pred=self.existing_pred, 
+            labels=list(self.existing_labels), average='micro'
+        )
+        macro = f1_score(
+            y_true=self.existing_label, y_pred=self.existing_pred, 
+            labels=list(self.existing_labels), average='macro'
+        )
         return {'micro_f1': round(micro, 3), 'macro_f1': round(macro, 3)}
 
     def evaluate_new_label_metrics(self):
@@ -71,7 +77,7 @@ class Evaluation:
         """
         binary = self.full_df.isin(self.existing_labels).astype(int)
         prec, recall, _, _ = precision_recall_fscore_support(
-            y_true=binary['truth'], y_pred=binary['predictions'], 
+            y_true=binary['truth'], y_pred=binary['predictions'],
             average=None
         )
         return {'precision': round(prec[0], 3), 'recall': round(recall[0], 3)}
@@ -98,6 +104,12 @@ class Evaluation:
                 lambda s: mapping[s] if s not in self.existing_labels else s
             )
         )
-        micro = f1_score(y_true=mapped_table['truth'], y_pred=mapped_table['mapped'], average='micro')
-        macro = f1_score(y_true=mapped_table['truth'], y_pred=mapped_table['mapped'], average='macro')
+        micro = f1_score(
+            y_true=mapped_table['truth'], y_pred=mapped_table['mapped'], 
+            average='micro'
+        )
+        macro = f1_score(
+            y_true=mapped_table['truth'], y_pred=mapped_table['mapped'], 
+            average='macro'
+        )
         return {'micro_f1': round(micro, 3), 'macro_f1': round(macro, 3)}
