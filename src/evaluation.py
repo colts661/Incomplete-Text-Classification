@@ -89,7 +89,7 @@ class Evaluation:
         """
         generated_classes = list(set(self.pending_pred) - set(self.existing_labels))
         similarity = pd.DataFrame([
-            [self.similarity_func(p, t) for t in self.removed_labels] 
+            [self.similarity_func(p.lower(), t.lower()) for t in self.removed_labels] 
             for p in generated_classes
         ], index=generated_classes, columns=list(self.removed_labels))
 

@@ -20,10 +20,18 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 
-# NLP packages
+# Word2Vec packages
 from gensim.utils import tokenize
 from gensim.models import Word2Vec
 from gensim.models.callbacks import CallbackAny2Vec
+
+# GloVe packages
+import glove
+from glove import Glove
+from glove import Corpus
+
+# fasttext
+import fasttext
 
 # misc
 from tqdm import tqdm
@@ -80,10 +88,9 @@ class Tfidf_Model:
         return top_dict
 
 
-class Word2Vec_Model:
+class Word_Embedding_Model:
     """
-    Baseline model that utilizes the Word2Vec algorithm to learn
-    vector representations for words.
+    General word embedding model. Needs to be inherited
     """
 
     def __init__(self, corpus, labels=None, seedwords=None):
@@ -99,24 +106,16 @@ class Word2Vec_Model:
             self.pred_to_label = np.vectorize(lambda idx: self.labels[idx])            
     
     def fit(self, **config):
-        """
-        Train the Word2Vec model using config in model.
-        """
-        self.config = config
-        self.model = Word2Vec(self.corpus, **config, callbacks=[Word2Vec_Callback()])
+        raise NotImplementedError
     
     def load_model(self, path_or_model):
-        if os.path.exists(path_or_model):
-            assert '.model' in path_or_model
-            self.model = Word2Vec.load(path_or_model)
-            self.config = load_config(path_or_model.replace('.model', '_config.json'))
-        elif isinstance(path_or_model, str):
-            try:
-                self.model = gensim_api.load(path_or_model)
-            except ValueError:
-                pass
-        else:
-            raise FileNotFoundError('Model or path to model not found')
+        raise ValueError('This model does not support loading')
+    
+    def get_word_embedding(self, word):
+        raise NotImplementedError
+
+    def get_document_embedding(self, words):
+        raise NotImplementedError
     
     def predict(self):
         self.check_fitted()
@@ -129,7 +128,7 @@ class Word2Vec_Model:
             enumerate(self.corpus), 
             "Finding Document Representations"
         ):
-            embed = self.get_avg_embedding(doc)
+            embed = self.get_document_embedding(doc)
             if embed is not None:
                 self.doc_rep[i] = embed
     
@@ -137,7 +136,7 @@ class Word2Vec_Model:
             enumerate(self.seedwords.values()), 
             "Finding Label Representations"
         ):
-            embed = self.get_avg_embedding(seeds)
+            embed = self.get_document_embedding(seeds)
             if embed is not None:
                 self.label_rep[i] = embed
         
@@ -153,30 +152,6 @@ class Word2Vec_Model:
         # predict
         self.predictions = self.pred_to_label(self.relevance.argmax(axis=1))
         return self.predictions
-    
-    def get_embedding(self, word):
-        self.check_fitted()
-        
-        if word in self.model.wv:
-            return self.model.wv[word]
-        
-        stemmer = EnglishStemmer()
-        if stemmer.stem(word) in self.model.wv:
-            return self.model.wv[stemmer.stem(word)]
-        
-        if '_' in word:
-            words = word.strip().split('_')
-            return self.get_avg_embedding(words)
-    
-    def get_avg_embedding(self, words):
-        lst = []
-        for w in words:
-            w_emb = self.get_embedding(w)
-            if w_emb is not None:
-                lst.append(w_emb)
-        if not lst:
-            return
-        return np.vstack(lst).mean(axis=0)
 
     def get_max_sim_distribution(self):
         return pd.Series(self.relevance.max(axis=1)).plot(kind='hist')
@@ -204,10 +179,59 @@ class Word2Vec_Model:
         if not hasattr(self, "model"):
             raise NotFittedError('Please fit or load the model first')
     
-    def save_model(self, out_path):
-        assert '.model' in out_path
+    def save_model(self, out_path, suffix='.model'):
+        assert suffix in out_path
         self.model.save(out_path)
-        write_config(self.config, path=out_path.replace('.model', '_config.json'))
+        write_config(self.config, path=out_path.replace(suffix, '_config.json'))
+
+
+class Word2Vec_Model(Word_Embedding_Model):
+    """
+    Word2Vec Embedding based on window context of a word
+    """
+    def fit(self, **config):
+        """
+        Train the Word2Vec model using config in model.
+        """
+        self.config = config
+        self.model = Word2Vec(self.corpus, **config, callbacks=[Word2Vec_Callback()])
+
+    def load_model(self, path_or_model):
+        if os.path.exists(path_or_model):
+            assert '.model' in path_or_model
+            self.model = Word2Vec.load(path_or_model)
+            self.config = load_config(path_or_model.replace('.model', '_config.json'))
+        elif isinstance(path_or_model, str):
+            try:
+                self.model = gensim_api.load(path_or_model)
+            except ValueError:
+                pass
+        else:
+            raise FileNotFoundError('Model or path to model not found')
+    
+    def get_word_embedding(self, word):
+        self.check_fitted()
+        
+        if word in self.model.wv:
+            return self.model.wv[word]
+        
+        stemmer = EnglishStemmer()
+        if stemmer.stem(word) in self.model.wv:
+            return self.model.wv[stemmer.stem(word)]
+        
+        if '_' in word:
+            words = word.strip().split('_')
+            return self.get_avg_embedding(words)
+
+    def get_document_embedding(self, words):
+        lst = []
+        for w in words:
+            w_emb = self.get_word_embedding(w)
+            if w_emb is not None:
+                lst.append(w_emb)
+        if not lst:
+            return
+        return np.vstack(lst).mean(axis=0)
 
 
 class Word2Vec_Callback(CallbackAny2Vec):
@@ -221,20 +245,52 @@ class Word2Vec_Callback(CallbackAny2Vec):
             print(f'Epoch: {self.epoch}')
 
 
-class Clustering_Model:
-    def __init__(self, method, vectors, vector_idx):
-        assert method.lower() in ['kmeans', 'gmm'], "Only supports KMeans and Gaussian Mixture"
-        self.method = method
-        self.vectors = vectors
-        self.vector_idx = vector_idx
+class GloVe_Model(Word_Embedding_Model):
+    def fit(self, **config):
+        """
+        Train the GloVe model using config in model.
+        TODO: Change config to fit into GloVe model inputs
+        """
+        self.config = config
+        corpus = Corpus()
+        corpus.fit(self.data.unlabeled_corpus, window=10)
+        self.model = Glove(no_components=128, random_state=42) 
+        self.model.fit(corpus.matrix, epochs=150, no_threads=4, verbose=True)
+        self.model.add_dictionary(corpus.dictionary)
 
-    def fit_transform(self, n_classes=10):
-        # define model
-        if self.method.lower() == 'kmeans':
-            self.model = KMeans(n_clusters=n_classes, n_init=10, random_state=0)
-        elif self.method.lower() == 'gmm':
-            self.model = GaussianMixture(n_components=n_classes, n_init=10, random_state=0)
+    def load_model(self, model):
+        if os.path.exists(model):
+            assert '.model' in model
+            self.model = Glove.load(model)
+            self.config = load_config(model.replace('.model', '_config.json'))
+        else:
+            raise FileNotFoundError('Model or path to model not found')
 
-        # run clustering
-        self.cluster_results = self.model.fit_predict(self.vectors)
-        return self.cluster_results
+
+class FastText_Model(Word_Embedding_Model):
+    def fit(self, file_path, **config):
+        """
+        Train the fasttext unsupervised model using config. In this model,
+        the corpus has to be a preprocessed text file
+        """
+        self.config = config
+        self.model = fasttext.train_unsupervised(file_path, **config)
+    
+    def save_model(self, out_path, suffix='.bin'):
+        return super().save_model(out_path, suffix)
+
+    def load_model(self, model):
+        if os.path.exists(model):
+            assert '.bin' in model
+            self.model = fasttext.load(model)
+            self.config = load_config(model.replace('.bin', '_config.json'))
+        else:
+            raise FileNotFoundError('Model or path to model not found')
+
+    def get_word_embedding(self, word):
+        self.check_fitted()
+        return self.model.get_word_vector(word)
+
+    def get_document_embedding(self, words):
+        self.check_fitted()
+        return self.model.get_sentence_vector(' '.join(words))
