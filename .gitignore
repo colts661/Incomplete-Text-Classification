@@ -3,6 +3,7 @@ notebook/
 
 # running artifacts
 artifacts/
+wandb/
 
 # data
 data/processed/*
