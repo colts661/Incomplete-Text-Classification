@@ -37,57 +37,6 @@ import fasttext
 from tqdm import tqdm
 
 
-class Tfidf_Model:
-    def fit_transform(self, corpus: pd.DataFrame):
-        self.model = TfidfVectorizer(stop_words='english')
-        tfidf_values = self.model.fit_transform(corpus['sentence'])
-        self.values_matrix = pd.DataFrame(
-            tfidf_values.toarray(), 
-            columns=self.model.get_feature_names_out(),
-            index=corpus.index
-        )
-    
-    def get_top_dict(self, stop_words=None, k=10, strict=False, keep_values=False):
-        if not hasattr(self, 'model'):
-            raise NotImplementedError('Please fit the model first')
-            
-        if stop_words is None:
-            stop_words = ENGLISH_STOP_WORDS
-            
-        # get top values, duplicate possible
-        top_dict = {}
-        all_top = []
-        if strict:
-            top_take = k
-        else:
-            top_take = max(10, k * 3)
-        
-        for label, ser in self.values_matrix.iterrows():
-            if keep_values:
-                top = [(word, value) for word, value in (
-                    ser[~ser.index.isin(stop_words)].nlargest(top_take)
-                    .to_dict().items()
-                )]
-                top_dict[label] = top
-                all_top.extend(map(lambda tup: tup[0], top))
-            else:
-                top = ser[~ser.index.isin(stop_words)].nlargest(top_take).index.tolist()
-                top_dict[label] = top
-                all_top.extend(top)
-        
-        # remove duplicates
-        duplicates = {word for word, count in Counter(all_top).most_common() if count > 1}
-        duplicates = duplicates.union(stop_words)
-
-        for label, top_words in top_dict.items():
-            if keep_values:
-                top_dict[label] = [tup for tup in top_words if tup[0] not in duplicates][:k]
-            else:
-                top_dict[label] = [word for word in top_words if word not in duplicates][:k]
-
-        return top_dict
-
-
 class Word_Embedding_Model:
     """
     General word embedding model. Needs to be inherited
@@ -221,7 +170,7 @@ class Word2Vec_Model(Word_Embedding_Model):
         
         if '_' in word:
             words = word.strip().split('_')
-            return self.get_avg_embedding(words)
+            return self.get_document_embedding(words)
 
     def get_document_embedding(self, words):
         lst = []
@@ -282,8 +231,9 @@ class FastText_Model(Word_Embedding_Model):
     def load_model(self, model):
         if os.path.exists(model):
             assert '.bin' in model
-            self.model = fasttext.load(model)
+            self.model = fasttext.load_model(model)
             self.config = load_config(model.replace('.bin', '_config.json'))
+            self.model.vector_size = self.config['dim']
         else:
             raise FileNotFoundError('Model or path to model not found')
 
