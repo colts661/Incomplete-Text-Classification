@@ -72,6 +72,17 @@ def plot_max_similarity(max_similarity):
     pd.Series(max_similarity).plot(kind='hist', ax=ax)
     return fig
 
+def max_similarity_histogram(max_similarity):
+    """
+    Show histogram of maximum similarity in plain text
+    """
+    cnts, bins = np.histogram(max_similarity)
+    cumu_cnts = np.round(np.cumsum(cnts) / np.sum(cnts) * 100, 1)
+    show_bins = np.round(bins, 3)
+    for c, b in zip(cumu_cnts, show_bins):
+        print(f"Percentage < {b}: {c}%")
+    print()
+
 
 def confidence_split(max_sim, argmax_sim, data: data.Data, doc_rep, threshold=0.1):
     """

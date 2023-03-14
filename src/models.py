@@ -19,11 +19,17 @@ def run_model(dataset, model_type):
     if not os.path.exists('artifacts'):
         os.mkdir('artifacts')
     now = datetime.now().strftime('%Y-%m-%d')
+
+    print(f"Running {model_type} model on {dataset}")
+    print("Enter user input when prompted. Figures are stored in `artifacts/`")
+    if dataset != "testdata":
+        print("This might take some time to run.")
     
     # load data
     d = Data('data', dataset)
     d.process_corpus()
     d.process_labels()
+    print(d.show_statistics())
 
     if model_type == 'final':
         # load pretrained BERT
@@ -67,6 +73,7 @@ def run_model(dataset, model_type):
 
     if model_type == 'final':
         # run PCA
+        print("Running Dimensionality Reduction")
         rep_pca = unsupervised.Dimensionality_Reduction('pca')
         low_dim_doc_rep = rep_pca.fit_transform(util.tensor_to_numpy(doc_rep), dimension=128)
         low_dim_class_rep = rep_pca.transform(class_rep)
@@ -78,8 +85,8 @@ def run_model(dataset, model_type):
         d, low_dim_doc_rep[len(d.labeled_labels):], low_dim_class_rep
     )
     sim_fig = similarity.plot_max_similarity(max_sim)
-    plt.show()
     sim_fig.savefig(f'artifacts/{dataset}_{model_type}_sim_distribution_{now}.png')
+    similarity.max_similarity_histogram(max_sim)
 
     # split by confidence
     threshold = input("Enter a threshold for unconfidence: ")
@@ -89,7 +96,6 @@ def run_model(dataset, model_type):
     unconfident_docs, unconfident_idx, unconfident_rep = split_result['unconfident']
     confident_predictions = split_result['confident']
     tsne_fig = similarity.display_vectors(d, unconfident_rep, unconfident_idx, pca_dim=50, tsne_perp=30)
-    plt.show()
     tsne_fig.savefig(f'artifacts/{dataset}_{model_type}_tsne_distribution_{now}.png')
 
     # run cluster
@@ -98,8 +104,9 @@ def run_model(dataset, model_type):
     gmm_results = gmm.fit_transform(n_classes=5)
 
     # run label generation
-    print("For time and cost purpose, run LI-TF-IDF Label generation")
+    print("For time and cost purposes, run LI-TF-IDF Label generation")
     li_tfidf_labels = generation.get_li_tfidf_class_label(d, unconfident_idx, unconfident_docs, gmm_results)
+    print()
     
     # evaluation
     df_new_classes = generation.get_df_new_classes(d, unconfident_docs, unconfident_idx, gmm_results, li_tfidf_labels)
@@ -107,14 +114,8 @@ def run_model(dataset, model_type):
     e = evaluation.Evaluation(d, full_pred, list(li_tfidf_labels.values()))
     print("Evaluations:")
     print(f"New Label Binary: {e.evaluate_new_label_metrics()}")
-    print()
-
     print(f"Existing Label Performances: {e.evaluate_existing()}")
-    print()
-    
-    print(f"Word Cloud: Left Original; Right Generated")
     wc_fig = e.plot_word_cloud(df_new_classes)
-    plt.show()
     wc_fig.savefig(f'artifacts/{dataset}_{model_type}_word_cloud_{now}.png')
 
 

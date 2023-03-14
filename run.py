@@ -25,25 +25,6 @@ def parse() -> argparse.Namespace:
     )
 
     return parser.parse_args()
-    
-
-# def experiment(dataset: str) -> None:
-#     print('Running Experiment Target:')
-#     data = Data('data', dataset)
-#     data.process_corpus()
-#     if not hasattr(data, 'labeled_labels'):
-#         data.process_labels(rerun=True)
-#     print()
-#     pprint(data.show_statistics())
-#     print()
-#     pprint(data)
-
-#     baseline = Baseline_Model(data)
-#     pred = baseline.run(w2v_config={
-#         'vector_size': 32,
-#         'epochs': 5
-#     })
-#     baseline.evaluate(pred)
 
 
 if __name__ == "__main__":
