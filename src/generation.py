@@ -137,6 +137,7 @@ def get_li_tfidf_class_label(data: data.Data, unconfident_idx, unconfident_docs,
 
 @backoff.on_exception(backoff.expo, openai.error.RateLimitError)
 def get_gpt_completion(prompt_type, content, seen_labels):
+    print("Please store your `openai` API key in the variable `openai.api_key`")
     doc_prompt = "Generate a general topic for the following document. No header needed."
     full_prompt_1 = "Use one generic topic word to describe the following list of topics."
     full_prmopt_2 = f"Example labels: {', '.join(seen_labels)}."
@@ -157,7 +158,7 @@ def get_gpt_completion(prompt_type, content, seen_labels):
     )
     
     s = re.sub(pattern="\"|'", repl="", string=response.choices[0]['message']['content'])
-    return s.translate(str.maketrans("", "", string.punctuations))
+    return s.translate(str.maketrans("", "", string.punctuation))
 
 
 def get_gpt_label(data: data.Data, label_samples, unconfident_docs):
