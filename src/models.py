@@ -89,6 +89,7 @@ def run_model(dataset, model_type):
     unconfident_docs, unconfident_idx, unconfident_rep = split_result['unconfident']
     confident_predictions = split_result['confident']
     tsne_fig = similarity.display_vectors(d, unconfident_rep, unconfident_idx, pca_dim=50, tsne_perp=30)
+    plt.show()
     tsne_fig.savefig(f'artifacts/{dataset}_{model_type}_tsne_distribution_{now}.png')
 
     # run cluster
@@ -113,6 +114,7 @@ def run_model(dataset, model_type):
     
     print(f"Word Cloud: Left Original; Right Generated")
     wc_fig = e.plot_word_cloud(df_new_classes)
+    plt.show()
     wc_fig.savefig(f'artifacts/{dataset}_{model_type}_word_cloud_{now}.png')
 
 
