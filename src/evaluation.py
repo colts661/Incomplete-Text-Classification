@@ -16,21 +16,21 @@ class Evaluation:
     def __init__(self, data: data.Data, predictions, new_labels):
         assert len(data.unlabeled_labels) == len(predictions)
         self.data = data
-        self.full_df = predictions.assign(truth=data.unlabeled_labels)
+        self.full_df = predictions.assign(truth=self.data.unlabeled_labels)
         self.new_labels = new_labels
 
         # existing labels: take existing labels from ground truth
         self.existing_idx, self.existing_pred, self.existing_label = zip(*[
             (idx, pred, truth) 
-            for idx, (pred, truth) in enumerate(zip(self.full_df['predictions'], data.unlabeled_labels))
-            if truth in self.existing_labels
+            for idx, (pred, truth) in enumerate(zip(self.full_df['predictions'], self.data.unlabeled_labels))
+            if truth in self.data.existing_labels
         ])
 
         # removed label: to plot
         self.removed_idx, self.removed_doc, self.removed_label = zip(*[
             (idx, ' '.join(doc), truth) 
-            for idx, (doc, truth) in enumerate(zip(data.unlabeled_corpus, data.unlabeled_labels))
-            if truth not in data.existing_labels
+            for idx, (doc, truth) in enumerate(zip(self.data.unlabeled_corpus, self.data.unlabeled_labels))
+            if truth not in self.data.existing_labels
         ])
 
     def evaluate_existing(self):
