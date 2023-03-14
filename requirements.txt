@@ -1,6 +1,6 @@
 numpy==1.22.0
-scipy==1.7.1
-scikit-learn==1.0.2
+scipy==1.10.0
+scikit-learn==1.1.1
 gensim
 matplotlib==3.5.2
 tqdm==4.64.1
@@ -8,3 +8,7 @@ nltk==3.7
 pandas==1.5.2
 python-Levenshtein
 threadpoolct==3.1.0
+transformers[torch]
+wordcloud
+openai
+backoff

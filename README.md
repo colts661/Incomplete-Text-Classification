@@ -68,14 +68,16 @@ The full command is:
 python run.py [-h] target [-d DATA] [-m MODEL]
 
 required: target {test,experiment,exp}
-  run target. Default experiment; if test is selected, run final model on testdata.
+  run target. Default experiment; if test is selected, run baseline model on testdata.
 
 optional arguments:
   -h, --help                 show this help message and exit
   -d DATA, --data DATA       data path, required for non-testdata
   -m MODEL, --model MODEL    model pipeline, {'final', 'baseline'}. Default 'final'
 ```
-**Note**: Due to time constraints and container constraints, the short experiments are chosen to run fast, which means performance is not guaranteed.
+**Notes**: 
+1. Due to data size constraints to run large BERT embeddings or train embeddings based on the corpus, the `test` target will run the baseline model with pre-trained `glove-twitter-25` word embedding to speed up computation time.
+2. Due to time constraints and container constraints, the short experiments are chosen to run fast, which means performance is not guaranteed.
 
 
 ### Code File Outline
