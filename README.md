@@ -1,20 +1,37 @@
 # Incomplete Supervision: Text Classification based on a Subset of Labels
-Authors: Luning Yang, Yacun Wang<br>
-Mentor: Jingbo Shang
 
-In this project, we aim to design a text classification model that could suggest class names not belonging to the training corpus to unseen documents, and classify documents into a full set of class names.
+In this project, we explore the **I**n**c**omplete **T**ext **C**lassification (IC-TC) setting. We aim to design a text classification model that could suggest class names not belonging to the training corpus to unseen documents, and classify documents into a full set of class names.
+
+<div style="display:flex;">
+    <div style="width:100%;float:left">
+        Authors: Luning Yang, Yacun Wang<br>Mentor: Jingbo Shang
+    </div>
+</div>
+
+
+### Model Pipeline
+- Find seed words from the supervised set: TF-IDF
+- Use full corpus to find word embeddings
+  - Final Model: Pretrained `BERT` contextualized word embeddings using static representations guided by `XClass`, reduced dimensions using PCA
+  - Baseline Model: Trained `Word2Vec` word embeddings
+- Find document and class embeddings based on averaged word embeddings, from the documents or seed words
+- Compute similarity as confidence score, predict argmax if confidence over threshold
+- For other unconfident documents, run clustering and label generation (LI-TF-IDF or Prompted ChatGPT)
+<p align="center"><img width="60%" src="others/model-pipeline.png"/></p>
+
 
 ### Environment
 
-- [**DSMLP Users**]: Since the data for this project is large, please run DSMLP launch script using a larger RAM. The suggested command is `launch.sh -i yaw006/incomplete-tc:checkpoint -m 16`. Please **DO NOT** use the default, otherwise Python processes might be killed halfway.
+- [**DSMLP Users**]: Since the data for this project is large, please run DSMLP launch script using a larger RAM. The suggested command is `launch.sh -i yaw006/incomplete-tc:final -m 16 -g 1`. Please **DO NOT** use the default, otherwise Python processes will be killed halfway.
 - Other options:
-  - Option 1: Run the docker container: `docker run yaw006/incomplete-tc:checkpoint`;
+  - Option 1: Run the docker container: `docker run yaw006/incomplete-tc:final`;
   - Option 2: Install all required packages in `requirements.txt`.
 
 ### Data
 #### Data Information
 - The datasets used in the experiments can be found on [Google Drive](https://drive.google.com/drive/folders/1kf3AXpKbwbZuQhcVSiaMzCiaSrWTdO7i?usp=sharing).
-- The datasets used in the experiments are: `nyt-fine`, `Reddit`, `DBPedia`
+- The datasets used in the experiments are: `DBPedia`, `DBPedia-small`, `nyt-fine`, `Reddit`
+- **Note**: `DBPedia-small` is the default experiment target dataset, as it contains a subset of documents for the full `DBPedia` dataset, and could be run in a few minutes.
 
 #### Get Data
 - [**DSMLP Users**]: For the 3 datasets provided, convenient Linux commands to download and get the data are provided in the [documentation of raw data](data/raw/). Please run the commands in the **repository root directory**.
@@ -40,7 +57,7 @@ In this project, we aim to design a text classification model that could suggest
 [**DSMLP Users**]: 
 - The `test` target could be easily run as `python run.py test`.
 - The `experiment` target could be run as `python run.py exp -d <dataset>`.
-- When prompted from the prompt, insert values by manually inspecting the plots generated in `artifacts/`.
+- When prompted from the prompt, insert values.
 
 The main script is located in the root directory. It supports 3 targets:
 - `test`: Run the test data. All other flags are ignored.
@@ -48,14 +65,15 @@ The main script is located in the root directory. It supports 3 targets:
 
 The full command is:
 ```
-python run.py [-h] target [-d DATA]
+python run.py [-h] target [-d DATA] [-m MODEL]
 
 required: target {test,experiment,exp}
-  run target. Default experiment; if test is selected, ignore all other flags.
+  run target. Default experiment; if test is selected, run final model on testdata.
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -d DATA, --data DATA  data path, required for non-testdata
+  -h, --help                 show this help message and exit
+  -d DATA, --data DATA       data path, required for non-testdata
+  -m MODEL, --model MODEL    model pipeline, {'final', 'baseline'}. Default 'final'
 ```
 **Note**: Due to time constraints and container constraints, the short experiments are chosen to run fast, which means performance is not guaranteed.
 
@@ -72,9 +90,12 @@ Incomplete-Text-Classification/
 │   └── processed/                   <- processed files (after preprocessing)
 ├── src/                             <- source code library
 │   ├── data.py                      <- data class definition
-│   ├── base_modules.py              <- modules as basic components
-│   ├── baseline_model.py            <- simple baseline model
+│   ├── word_embedding.py            <- word embedding modules
+│   ├── similarity.py                <- computing similarities and cutoff
+│   ├── unsupervised.py              <- dimensionality reduction and clustering
+│   ├── generation.py                <- label or seed word generation
 │   ├── evaluation.py                <- evaluation methods
+│   ├── models.py                    <- model pipelines
 │   └── util.py                      <- other utility functions
 └── test/                            <- test target data
 ```
@@ -91,3 +112,28 @@ Incomplete-Text-Classification/
     year={2013}
 }
 ```
+
+#### XClass
+```
+@misc{wang2020xclass,
+      title={X-Class: Text Classification with Extremely Weak Supervision}, 
+      author={Zihan Wang and Dheeraj Mekala and Jingbo Shang},
+      year={2020},
+      eprint={2010.12794},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
+
+#### BERT
+```
+@article{devlin2018bert,
+  title={BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding},
+  author={Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
+  journal={arXiv preprint arXiv:1810.04805},
+  year={2018}
+}
+```
+<div style="float:right">
+    <img width="25%" src="others/HDSI.png" alt="Logo">
+</div>

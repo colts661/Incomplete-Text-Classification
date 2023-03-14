@@ -1,67 +1,30 @@
 import sys
 import argparse
-from pprint import pprint
 
 sys.path.insert(0, 'src')
-
-from util import *
-from data import Data
-from baseline_model import *
+from models import run_baseline_model, run_final_model
 
 
 def parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run script using runtime configuration defined in `config/`"
+        description="Run script"
     )
     parser.add_argument(
         "target", choices=['test', 'experiment', 'exp'],
         type=str, default='experiment',
-        help="run target. Default experiment; if test is selected, ignore all other flags."
+        help="run target. Default experiment; if test is selected, run baseline model on testdata."
     )
-    parser.add_argument("-d", "--data", type=str, help="data path", default='nyt/coarse')
+    parser.add_argument(
+        "-d", "--data", 
+        type=str, help="dataset name",
+        default='DBPedia-small'
+    )
+    parser.add_argument(
+        "-m", "--model", type=str, choices=['baseline', 'final'],
+        help="model pipeline to run", default='final'
+    )
+
     return parser.parse_args()
-
-
-def test() -> None:
-    """
-    Run test target
-    """
-    print('Running Test Data Target:')
-    testdata = Data('test', 'testdata')
-    testdata.process_corpus(remove_stopwords=False)
-    testdata.process_labels(bottom_p=0.5, full_k=1, keep_p=0.6)
-    print()
-    pprint(testdata.show_statistics())
-    print()
-    pprint(testdata)
-
-    test_baseline = Baseline_Model(testdata)
-    test_pred = test_baseline.run(w2v_config={
-        'vector_size': 16,
-        'epochs': 2,
-        'window': 3,
-        'min_count': 1
-    })
-    test_baseline.evaluate(test_pred)
-    
-
-def experiment(dataset: str) -> None:
-    print('Running Experiment Target:')
-    data = Data('data', dataset)
-    data.process_corpus()
-    if not hasattr(data, 'labeled_labels'):
-        data.process_labels(rerun=True)
-    print()
-    pprint(data.show_statistics())
-    print()
-    pprint(data)
-
-    baseline = Baseline_Model(data)
-    pred = baseline.run(w2v_config={
-        'vector_size': 32,
-        'epochs': 5
-    })
-    baseline.evaluate(pred)
 
 
 if __name__ == "__main__":
@@ -70,9 +33,11 @@ if __name__ == "__main__":
 
     # test target
     if args.target == 'test':
-        test()
+        run_baseline_model('testdata')
 
     else:
         # experiment target
-        if args.target in ['experiment', 'exp']:
-            experiment(args.data)
+        if args.model == 'baseline':
+            run_baseline_model(args.data)
+        elif args.model == 'final':
+            run_final_model(args.data)

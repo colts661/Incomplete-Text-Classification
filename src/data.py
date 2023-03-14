@@ -1,11 +1,10 @@
 """
 Data Loading and Corpus Generation
 """
-import pickle
+
 import sys
 import os
 import json
-import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,6 +15,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 nltk.download('stopwords', quiet=True)
 nltk.download('punkt', quiet=True)
+import util
 
 
 class Data:
@@ -26,6 +26,7 @@ class Data:
     def __init__(self, data_dir, dataset):
         # general info
         self.name = dataset
+        self.__rerun = False
         
         # paths
         self.raw_path = os.path.join(data_dir, 'raw', dataset)
@@ -37,22 +38,19 @@ class Data:
 
     def process_corpus(
         self, remove_punctuation=True, remove_stopwords=True,
-        stem=False, lemmatize=False, 
-        word_piece=False, phrase_mine=False  # more advanced, not implemented yet
+        stem=False, lemmatize=False
     ):
         data_config = {
             'remove_punctuation': remove_punctuation,
             'remove_stopwords': remove_stopwords,
             'stem': stem,
-            'lemmatize': lemmatize,
-            'word_piece': word_piece,
-            'phrase_mine': phrase_mine
+            'lemmatize': lemmatize
         }
         load_config = self.read_current_config('data')
 
         if load_config is None or load_config != data_config:
             print(f'Preprocessing Corpus: {self.name}')
-            self.df = pickle.load(open(os.path.join(self.raw_path, "df.pkl"), "rb"))
+            self.df = util.read_pickle(os.path.join(self.raw_path, "df.pkl"))
             if remove_punctuation:
                 self.df['sentence'] = self.df['sentence'].str.replace('[^\w\s]', '', regex=True)
 
@@ -78,29 +76,29 @@ class Data:
                     self.df['sentence']
                     .apply(lambda s: [lemmatizer.lemmatize(w) for w in s])
                 )
-            
-            if word_piece:
-                print("Not Implemented Yet")
-                pass
-
-            if phrase_mine:
-                print("Not Implemented Yet")
-                pass
 
             self.write_config('data', data_config)
-            self.write_pickle(os.path.join(self.processed_path, 'df.pkl'), self.df)
-            print('Done, please run process_label with rerun=True\n')
+            util.write_pickle(os.path.join(self.processed_path, 'df.pkl'), self.df)
+            print('Done\n')
+            self.__rerun = True
         else:
             print(f'Loading Corpus: {self.name}')
-            self.df = self.read_pickle(os.path.join(self.processed_path, 'df.pkl'))
-            self.labeled_corpus = self.read_pickle(self.corpus_path('labeled'))
-            self.labeled_labels = self.read_pickle(self.labels_path('labeled'))
-            self.unlabeled_corpus = self.read_pickle(self.corpus_path('unlabeled'))
-            self.unlabeled_labels = self.read_pickle(self.labels_path('unlabeled'))
+            self.df = util.read_pickle(os.path.join(self.processed_path, 'df.pkl'))
+            self.labeled_corpus = util.read_pickle(self.corpus_path('labeled'))
+            self.labeled_labels = util.read_pickle(self.labels_path('labeled'))
+            self.unlabeled_corpus = util.read_pickle(self.corpus_path('unlabeled'))
+            self.unlabeled_labels = util.read_pickle(self.labels_path('unlabeled'))
+            self.full_corpus = []
+            for doc in self.labeled_corpus:
+                self.full_corpus.append(' '.join(doc))
+            for doc in self.unlabeled_corpus:
+                self.full_corpus.append(' '.join(doc))
             
             # process labels
-            self.labels = list(set(self.unlabeled_labels))
-            self.pred_to_label = np.vectorize(lambda idx: self.labels[idx])
+            self.labels = sorted(set(self.unlabeled_labels))
+            self.existing_labels = sorted(set(self.labeled_labels))
+            self.existing_to_index = {label: idx for idx, label in enumerate(self.existing_labels)}
+            self.unseen_labels = sorted(set(self.labels) - set(self.existing_labels))
             print('Done\n')
         
     def process_labels(self, bottom_p=0.5, full_k=5, keep_p=0.1, random_seed=None, rerun=False):
@@ -129,7 +127,9 @@ class Data:
         }
         load_config = self.read_current_config('label')
 
-        if rerun or load_config is None or load_config != label_config:
+        self.__rerun = rerun or self.__rerun
+
+        if self.__rerun or load_config is None or load_config != label_config:
             # count label frequency
             label_counts = self.df['label'].value_counts().sort_values()
             unpopular_labels = label_counts.iloc[:int(label_counts.shape[0] * bottom_p)]
@@ -155,17 +155,24 @@ class Data:
             self.labeled_labels = labeled['label'].to_numpy()
             self.unlabeled_corpus = removed['sentence'].tolist()
             self.unlabeled_labels = removed['label'].to_numpy()
+            self.full_corpus = []
+            for doc in self.labeled_corpus:
+                self.full_corpus.append(' '.join(doc))
+            for doc in self.unlabeled_corpus:
+                self.full_corpus.append(' '.join(doc))
 
             # write to file
             self.write_config('label', label_config)
-            self.write_pickle(self.corpus_path('labeled'), self.labeled_corpus)
-            self.write_pickle(self.labels_path('labeled'), self.labeled_labels)
-            self.write_pickle(self.corpus_path('unlabeled'), self.unlabeled_corpus)
-            self.write_pickle(self.labels_path('unlabeled'), self.unlabeled_labels)
+            util.write_pickle(self.corpus_path('labeled'), self.labeled_corpus)
+            util.write_pickle(self.labels_path('labeled'), self.labeled_labels)
+            util.write_pickle(self.corpus_path('unlabeled'), self.unlabeled_corpus)
+            util.write_pickle(self.labels_path('unlabeled'), self.unlabeled_labels)
 
             # process labels
-            self.labels = list(set(self.unlabeled_labels))
-            self.pred_to_label = np.vectorize(lambda idx: self.labels[idx])
+            self.labels = sorted(set(self.unlabeled_labels))
+            self.existing_labels = sorted(set(self.labeled_labels))
+            self.existing_to_index = {label: idx for idx, label in enumerate(self.existing_labels)}
+            self.unseen_labels = sorted(set(self.labels) - set(self.existing_labels))
         else:
             print('Changes not detected, no rerun needed')
 
@@ -185,14 +192,6 @@ class Data:
         assert mode in ['label', 'data']
         with open(os.path.join(self.processed_path, f"{mode}_config.json"), 'w') as f:
             json.dump(config, f)
-
-    def read_pickle(self, path):
-        with open(path, 'rb') as f:
-            return pickle.load(f)
-
-    def write_pickle(self, path, content):
-        with open(path, 'wb') as f:
-            pickle.dump(content, f)
     
     def __repr__(self):
         data_config = dict(tup for tup in self.read_current_config('data').items() if tup[1])

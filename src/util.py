@@ -2,25 +2,15 @@
 Utility Functions, Evaluation
 """
 
-from data import *
 import json
-from datetime import datetime
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-
+import pickle as pk
 from sklearn.metrics import f1_score
 from scipy.spatial import distance
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-
-import nltk
-# nltk.download('wordnet', quiet=True)
-# nltk.download('omw-1.4', quiet=True)
-
-from nltk.corpus import wordnet
 from nltk.stem.snowball import EnglishStemmer
 import gensim.downloader as gensim_api
+import torch
 
 
 ### config files
@@ -38,6 +28,14 @@ def write_config(config: dict, path: str) -> None:
     with open(path, 'w') as f:
         json.dump(config, f)
 
+def read_pickle(path):
+    with open(path, 'rb') as f:
+        return pk.load(f)
+
+def write_pickle(path, content):
+    with open(path, 'wb') as f:
+        pk.dump(content, f, protocol=4)
+
 
 ### Metrics
 def accuracy(label, pred):
@@ -52,12 +50,6 @@ def micro_f1(label, pred):
 ### Similarity
 def cosine_similarity(u, v):
     return 1 - distance.cosine(u, v)
-
-def wordnet_similarity(u, v):
-    """
-    Use Wu-Palmer similarity from WordNet for granuality check
-    """
-    return wordnet.synsets(u)[0].wup_similarity(wordnet.synsets(v)[0])
 
 def w2v_cosine_similiarity(model, u, v):
     stemmer = EnglishStemmer()
@@ -111,27 +103,15 @@ def load_w2v_model():
 
 
 ### plotting
-def display_vector_2d(reps, centroids=None, pca_dim=100, tsne_perp=30):
-    """
-    Displays the vector representations in 2D
-    """
-    # reduce dimension with PCA
-    pca = PCA(n_components=pca_dim)
-    pca_rep = pca.fit_transform(reps)
-
-    # t-SNE visualization transformation
-    tsne = TSNE(n_iter=5000, init='pca', learning_rate='auto', perplexity=tsne_perp)
-    tsne_rep = tsne.fit_transform(pca_rep)
-    
-    fig, ax = plt.subplots(1, 1, figsize=(4, 4))        
-    ax.scatter(tsne_rep[:, 0], tsne_rep[:, 1], edgecolors='k', c='gray', s=2)
-    if centroids is not None:
-        pca_centroids = pca.transform(centroids)
-        tsne_centroids = tsne.transform(pca_centroids)
-        ax.scatter(tsne_centroids[:, 0], tsne_centroids[:, 1], edgecolors='k', c='red', s=30)
-    ax.set_title('Unconfident Document Representations in 2D')
-    return fig
-
-
 def save_plot(fig, path):
     fig.savefig(path, transparent=True)
+
+
+# torch utils
+def tensor_to_numpy(tensor):
+    if tensor.device.type == 'cuda':
+        return tensor.clone().detach().cpu().numpy()
+    else:
+        return tensor
+
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
