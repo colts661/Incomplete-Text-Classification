@@ -113,14 +113,14 @@ class LI_cTF_IDF_Model(TF_IDF_Model):
         self.values_matrix = LI.multiply(c_TF).multiply(IDF).power(1/3).tocsr()
 
 
-def get_seed_words(data: data.Data, k=10):
+def get_seed_words(data: data.Data, k=10, strict=False):
     df_labeled = pd.DataFrame({'sentence': [
         ' '.join(doc) for doc in data.labeled_corpus
     ], 'label': data.labeled_labels})
 
     tfidf = TF_IDF_Model()
     tfidf.fit_transform(df_labeled)
-    return tfidf.get_top_dict(k=k, has_label=False)
+    return tfidf.get_top_dict(k=k, has_label=False, strict=strict)
 
 
 def get_li_tfidf_class_label(data: data.Data, unconfident_idx, unconfident_docs, cluster_results):

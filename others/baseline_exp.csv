@@ -1,5 +1,0 @@
-threshold,num_unconfident,new_label_prec,new_label_recall,existing_micro,existing_macro,generated_labels
-0.2,90,0.0,0.0,0.884,0.819,"['braun', 'bats', 'twitter', 'nfl', 'hall']"
-0.25,354,0.014,0.016,0.886,0.824,"['ncaa', 'braun', 'im', 'teams', 'mets']"
-0.3,759,0.024,0.058,0.88,0.824,"['jeter', 'im', 'points', 'nfl', 'braun']"
-0.35,1423,0.039,0.179,0.86,0.821,"['yankees', 'points', 'mr', 'cup', 'coach']"

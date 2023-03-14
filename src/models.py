@@ -1,43 +1,49 @@
-from util import *
-from data import *
-from word_embedding import *
-from unsupervised import *
-from evaluation import *
+import sys
+sys.path.insert(0, '../src')
+
+import numpy as np
+import pandas as pd
+import os
 from datetime import datetime
-import gensim.downloader as gensim_api
-
-
+import json
+import openai
+from data import Data
+import evaluation, generation, similarity, unsupervised, util, word_embedding
+from transformers import BertModel, BertTokenizer
 import warnings
 warnings.filterwarnings('ignore')
 
-class Baseline_Model:
-    def __init__(self, data):
-        self.data = data
-        
-    def run(self, w2v_config=None, w2v_model=None):
-        if not os.path.exists('artifacts'):
-            os.mkdir('artifacts')
-        now = datetime.now().strftime('%Y-%m-%d')
 
-        # Seed word generation: TF-IDF
-        print('## Finding Seed Words')
-        df_labeled = pd.DataFrame({'sentence': [
-            ' '.join(doc) for doc in self.data.labeled_corpus
-        ], 'label': self.data.labeled_labels})
+def run_model(dataset, model_type):
+    if not os.path.exists('artifacts'):
+        os.mkdir('artifacts')
+    now = datetime.now().strftime('%Y-%m-%d')
+    
+    # load data
+    d = Data('../data', dataset)
+    d.process_corpus()
+    d.process_labels()
 
-        combined_text_by_topics = (
-            df_labeled.groupby('label')['sentence']
-            .apply(lambda doc: ' '.join(doc))
-            .to_frame()
-        )
+    if model_type == 'final':
+        # load pretrained BERT
+        bert_model_name = 'bert-base-uncased'
+        tokenizer = BertTokenizer.from_pretrained(bert_model_name)
+        model = BertModel.from_pretrained(bert_model_name, output_hidden_states=True)
+        model.eval()
+        model.to(util.DEVICE)
 
-        tfidf = Tfidf_Model()
-        tfidf.fit_transform(combined_text_by_topics)
-        seed_words = tfidf.get_top_dict(k=10)
-        print()
+    # get seed words
+    seed_words = generation.get_seed_words(
+        d,
+        k=(1 if dataset == 'testdata' else 10),
+        strict=(dataset == 'testdata')
+    )
 
-        # Weakly supervised representation learning
-        print('## Training or Learning Word2Vec Model')
+    if model_type == 'final':
+        # find contexualized BERT embeddings
+        bert_embedding = word_embedding.BERT_Embedding(d)
+        bert_embedding.fit(tokenizer, model)
+    elif model_type == 'baseline':
         w2v = Word2Vec_Model(corpus=self.data.unlabeled_corpus, seedwords=seed_words)
         
         w2v_full_config = {
@@ -62,72 +68,64 @@ class Baseline_Model:
             w2v.save_model(f"artifacts/{self.data.name}_baseline_{now}.model")
         
         w2v_pred = w2v.predict()
-        sim_ax = w2v.get_max_sim_distribution()
-        sim_ax.get_figure().savefig(f'artifacts/{self.data.name}_sim_distribution_{now}.png')
-        print()
 
-        # get unconfident
-        to_split = input("Insert the threshold for unconfident document: ")
-        split_dict = w2v.confidence_split(float(to_split))
-        unconfident_docs, unconfident_idx, unconfident_rep = split_dict['unconfident']
-        confident_predictions = split_dict['confident']
-        print("Number of Unconfident Documents:", len(unconfident_docs))
+    # get doc/class representations
+    doc_rep = bert_embedding.get_document_embeddings()
+    class_rep = bert_embedding.get_class_embeddings(seed_words)
 
-        if len(unconfident_docs) > 0:
-            # clustering unconfident
-            if len(unconfident_docs) > 1:
-                gmm = Clustering_Model(method='gmm', vectors=unconfident_rep, vector_idx=unconfident_idx)
-                gmm_results = gmm.fit_transform(n_classes=min(5, len(unconfident_docs)))
-            else:
-                gmm_results = [0]
+    if model_type == 'final':
+        # run PCA
+        rep_pca = unsupervised.Dimensionality_Reduction('pca')
+        low_dim_doc_rep = rep_pca.fit_transform(util.tensor_to_numpy(doc_rep), dimension=128)
+        low_dim_class_rep = rep_pca.transform(class_rep)
+    else:
+        low_dim_doc_rep, low_dim_class_rep = doc_rep, class_rep
 
-            df_new_classes = pd.DataFrame({'sentence': [
-                ' '.join(doc) for doc in unconfident_docs
-            ], 'cluster_id': gmm_results}, index=unconfident_idx)
-            combined_text_by_clusters = (
-                df_new_classes.groupby('cluster_id')['sentence']
-                .apply(lambda lst: ' '.join(lst)).to_frame()
-            )
-            
-            # predict new class label
-            tfidf_clusters = Tfidf_Model()
-            tfidf_clusters.fit_transform(combined_text_by_clusters)
-            k = 1 if self.data.name == 'testdata' else 6
-            strict = True if self.data.name == 'testdata' else False
-            cluster_labels = tfidf_clusters.get_top_dict(k=k, strict=strict)
-            predict_cluster_word = {cluster_id: top[0] for cluster_id, top in cluster_labels.items()}
-            self.predict_cluster_word = predict_cluster_word
-            new_predictions = df_new_classes.assign(
-                predictions=[predict_cluster_word[cid] for cid in gmm_results]
-            )
+    # run similarity
+    max_sim, argmax_sim = similarity.get_cosine_similarity_batched(
+        d, low_dim_doc_rep[len(d.labeled_labels):], low_dim_class_rep
+    )
+    sim_fig = similarity.plot_max_similarity(max_sim)
+    sim_fig.savefig(f'artifacts/{dataset}_{model_type}_sim_distribution_{now}.png')
 
-            full_pred = pd.concat([
-                new_predictions[['sentence', 'predictions']], 
-                confident_predictions[['sentence', 'predictions']]
-            ]).sort_index()
-        else:
-            full_pred = confident_predictions[['sentence', 'predictions']]
+    # split by confidence
+    threshold = input("Enter a threshold for unconfidence: ")
+    split_result = similarity.confidence_split(
+        max_sim, argmax_sim, d, low_dim_doc_rep, threshold=float(threshold)
+    )
+    unconfident_docs, unconfident_idx, unconfident_rep = split_result['unconfident']
+    confident_predictions = split_result['confident']
+    tsne_fig = similarity.display_vectors(d, unconfident_rep, unconfident_idx, pca_dim=50, tsne_perp=30)
+    tsne_fig.savefig(f'artifacts/{dataset}_{model_type}_tsne_distribution_{now}.png')
 
-        return full_pred
+    # run cluster
+    print("Running Clustering")
+    gmm = unsupervised.Clustering_Model('gmm', unconfident_rep, unconfident_idx)
+    gmm_results = gmm.fit_transform(n_classes=5)
 
-    def evaluate(self, full_pred):
-        eval_w2v_model = gensim_api.load('word2vec-google-news-300')
-        e = Evaluation(self.data, full_pred['predictions'], w2v_model=eval_w2v_model)
+    # run label generation
+    print("For time and cost purpose, run LI-TF-IDF Label generation")
+    li_tfidf_labels = generation.get_li_tfidf_class_label(d, unconfident_idx, unconfident_docs, gmm_results)
+    
+    # evaluation
+    df_new_classes = generation.get_df_new_classes(d, unconfident_docs, unconfident_idx, gmm_results, li_tfidf_labels)
+    full_pred = generation.get_full_prediction(df_new_classes, li_tfidf_labels, confident_predictions)
+    e = evaluation.Evaluation(d, full_pred, list(li_tfidf_labels.values()))
+    print("Evaluations:")
+    print(f"New Label Binary: {e.evaluate_new_label_metrics()}")
+    print()
 
-        print("New Label Detection Metrics:")
-        print(e.evaluate_new_label_metrics())
-        print()
+    print(f"Existing Label Performances: {e.evaluate_existing()}")
+    print()
+    
+    print(f"Word Cloud: Left Original; Right Generated")
+    wc_fig = e.plot_word_cloud(df_new_classes)
+    wc_fig.savefig(f'artifacts/{dataset}_{model_type}_word_cloud_{now}.png')
 
-        print("Existing Label Performances:")
-        print(e.evaluate_existing())
-        print()
 
-        if hasattr(self, 'predict_cluster_word'):
-            print("Generated Class vs. Removed Labels:")
-            print("Generated", set(self.predict_cluster_word.values()))
-            print("Removed:", e.removed_labels)
-            print()
+def run_final_model(dataset):
+    run_model(dataset, model_type='final')
 
-            print("General Performance:")
-            naive_map = e.auto_unconstrained_mapping()
-            print(e.evaluate_full(naive_map))
+
+def run_baseline_model(dataset):
+    run_model(dataset, model_type='baseline')
