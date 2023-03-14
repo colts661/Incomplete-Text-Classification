@@ -75,7 +75,6 @@ def run_model(dataset, model_type):
     # get doc/class representations
     doc_rep = model_pipeline.get_document_embeddings()
     class_rep = model_pipeline.get_class_embeddings(seed_words)
-    print(class_rep)
 
     if model_type == 'final':
         # run PCA
