@@ -41,10 +41,10 @@ def run_model(dataset, model_type):
 
     if model_type == 'final':
         # find contexualized BERT embeddings
-        model = word_embedding.BERT_Embedding(d)
-        model.fit(tokenizer, model)
+        model_pipeline = word_embedding.BERT_Embedding(d)
+        model_pipeline.fit(tokenizer, model)
     elif model_type == 'baseline':
-        model = word_embedding.Word2Vec_Model(d)
+        model_pipeline = word_embedding.Word2Vec_Model(d)
         
         w2v_config = {
             "vector_size": 64, 
@@ -57,12 +57,12 @@ def run_model(dataset, model_type):
             "hs": 1, 
             "epochs": 2
         }
-        model.fit(**w2v_config)
-        model.save_model(f"artifacts/{dataset}_baseline_{now}.model")
+        model_pipeline.fit(**w2v_config)
+        model_pipeline.save_model(f"artifacts/{dataset}_baseline_{now}.model")
 
     # get doc/class representations
-    doc_rep = model.get_document_embeddings()
-    class_rep = model.get_class_embeddings(seed_words)
+    doc_rep = model_pipeline.get_document_embeddings()
+    class_rep = model_pipeline.get_class_embeddings(seed_words)
 
     if model_type == 'final':
         # run PCA
