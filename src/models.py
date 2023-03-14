@@ -109,8 +109,10 @@ def run_model(dataset, model_type):
     )
     unconfident_docs, unconfident_idx, unconfident_rep = split_result['unconfident']
     confident_predictions = split_result['confident']
-    tsne_fig = similarity.display_vectors(d, unconfident_rep, unconfident_idx, pca_dim=50, tsne_perp=30)
-    tsne_fig.savefig(f'artifacts/{dataset}_{model_type}_tsne_distribution_{now}.png')
+
+    if dataset != "testdata":
+        tsne_fig = similarity.display_vectors(d, unconfident_rep, unconfident_idx, pca_dim=50, tsne_perp=30)
+        tsne_fig.savefig(f'artifacts/{dataset}_{model_type}_tsne_distribution_{now}.png')
 
     # run cluster
     print("Running Clustering")
@@ -129,8 +131,10 @@ def run_model(dataset, model_type):
     print("Evaluations:")
     print(f"New Label Binary: {e.evaluate_new_label_metrics()}")
     print(f"Existing Label Performances: {e.evaluate_existing()}")
-    wc_fig = e.plot_word_cloud(df_new_classes)
-    wc_fig.savefig(f'artifacts/{dataset}_{model_type}_word_cloud_{now}.png')
+
+    if dataset != "testdata":
+        wc_fig = e.plot_word_cloud(df_new_classes)
+        wc_fig.savefig(f'artifacts/{dataset}_{model_type}_word_cloud_{now}.png')
 
 
 def run_final_model(dataset):
