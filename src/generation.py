@@ -183,7 +183,7 @@ def get_df_new_classes(data: data.Data, unconfident_docs, unconfident_index, clu
 
 def get_full_prediction(df_new_classes, predict_cluster_label, confident_predictions):
     new_predictions = df_new_classes.assign(
-        predictions=df_new_classes['label'].apply(lambda cid: predict_cluster_label[cid])
+        predictions=df_new_classes['label']
     )
     full_pred = pd.concat([
         new_predictions[['sentence', 'predictions']], 
