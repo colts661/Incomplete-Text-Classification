@@ -77,6 +77,7 @@ def run_model(dataset, model_type):
         d, low_dim_doc_rep[len(d.labeled_labels):], low_dim_class_rep
     )
     sim_fig = similarity.plot_max_similarity(max_sim)
+    sim_fig.show()
     sim_fig.savefig(f'artifacts/{dataset}_{model_type}_sim_distribution_{now}.png')
 
     # split by confidence
