@@ -16,7 +16,7 @@ def parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "-d", "--data", 
-        type=str, help="data path",
+        type=str, help="dataset name",
         default='DBPedia-small'
     )
     parser.add_argument(

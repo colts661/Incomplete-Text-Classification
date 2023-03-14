@@ -26,7 +26,7 @@ def run_model(dataset, model_type):
         print("This might take some time to run.")
     
     # load data
-    d = Data('data', dataset)
+    d = Data('data' if dataset != "testdata" else 'test', dataset)
     d.process_corpus()
     d.process_labels()
     print(d.show_statistics())
