@@ -59,7 +59,8 @@ def run_model(dataset, model_type):
         model_pipeline = word_embedding.Word2Vec_Model(d)
         
         if dataset == 'testdata':
-            w2v_config={
+            print("FOUND BETTER CONFIG")
+            w2v_config = {
                 'vector_size': 16,
                 'epochs': 2,
                 'window': 3,
