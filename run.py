@@ -12,7 +12,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "target", choices=['test', 'experiment', 'exp'],
         type=str, default='experiment',
-        help="run target. Default experiment; if test is selected, run final model on testdata."
+        help="run target. Default experiment; if test is selected, run baseline model on testdata."
     )
     parser.add_argument(
         "-d", "--data", 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     # test target
     if args.target == 'test':
-        run_final_model('testdata')
+        run_baseline_model('testdata')
 
     else:
         # experiment target
