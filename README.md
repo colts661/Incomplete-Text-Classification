@@ -6,9 +6,6 @@ In this project, we explore the **I**n**c**omplete **T**ext **C**lassification (
     <div style="width:100%;float:left">
         Authors: Luning Yang, Yacun Wang<br>Mentor: Jingbo Shang
     </div>
-    <div style="float:right">
-        <img width="25%" src="others/HDSI.png" alt="Logo">
-    </div>
 </div>
 
 
@@ -137,3 +134,6 @@ Incomplete-Text-Classification/
   year={2018}
 }
 ```
+<div style="float:right">
+    <img width="25%" src="others/HDSI.png" alt="Logo">
+</div>
