@@ -5,7 +5,7 @@ A collection of unsupervised learning modules: dimensionality reduction, cluster
 # basic packages
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import data
 
 # sklearn
 from sklearn.cluster import KMeans
@@ -15,13 +15,12 @@ from sklearn.decomposition import PCA
 
 
 class Clustering_Model:
-    def __init__(self, method, vectors, vector_idx, docs):
+    def __init__(self, method, vectors, vector_idx):
         supports = ['kmeans', 'gmm']
         assert method.lower() in supports, f"Only supports {', '.join(supports)}"
         self.method = method
         self.vectors = vectors
         self.vector_idx = vector_idx
-        self.docs = docs
 
     def fit_transform(self, n_classes=10):
         # define model
@@ -57,11 +56,6 @@ class Clustering_Model:
             all_samples[cluster_id] = sampled.index.to_numpy()
         
         return all_samples
-    
-    def get_df_new_classes(self):
-        return pd.DataFrame({'sentence': [
-            ' '.join(doc) for doc in self.docs.values()
-        ], 'label': self.cluster_results}, index=self.vector_idx)
 
 
 class Dimensionality_Reduction:

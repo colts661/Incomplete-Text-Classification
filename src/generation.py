@@ -174,6 +174,13 @@ def get_gpt_label(data: data.Data, label_samples, unconfident_docs):
     return predict_cluster_label
 
 
+def get_df_new_classes(data: data.Data, unconfident_docs, unconfident_index, cluster_results, predict_cluster_label):
+    return pd.DataFrame({
+        'sentence': [' '.join(doc) for doc in unconfident_docs.values()], 
+        'label': [predict_cluster_label[c] for c in cluster_results]
+    }, index=unconfident_index)
+
+
 def get_full_prediction(df_new_classes, predict_cluster_label, confident_predictions):
     new_predictions = df_new_classes.assign(
         predictions=df_new_classes['label'].apply(lambda cid: predict_cluster_label[cid])
