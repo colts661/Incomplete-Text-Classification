@@ -58,17 +58,25 @@ def run_model(dataset, model_type):
     elif model_type == 'baseline':
         model_pipeline = word_embedding.Word2Vec_Model(d)
         
-        w2v_config = {
-            "vector_size": 64, 
-            "alpha": 0.01, 
-            "window": 10, 
-            "min_count": 10 if dataset != "testdata" else 1, 
-            "sample": 0.001, 
-            "seed": 42, 
-            "sg": 0, 
-            "hs": 1, 
-            "epochs": 2
-        }
+        if dataset == 'testdata':
+            w2v_config={
+                'vector_size': 16,
+                'epochs': 2,
+                'window': 3,
+                'min_count': 1
+            }
+        else:
+            w2v_config = {
+                "vector_size": 64, 
+                "alpha": 0.01, 
+                "window": 10, 
+                "min_count": 10, 
+                "sample": 0.001, 
+                "seed": 42, 
+                "sg": 0, 
+                "hs": 1, 
+                "epochs": 2
+            }
         model_pipeline.fit(**w2v_config)
         model_pipeline.save_model(f"artifacts/{dataset}_baseline_{now}.model")
 
