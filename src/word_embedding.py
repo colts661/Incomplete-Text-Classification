@@ -82,6 +82,7 @@ class Word2Vec_Model(Word_Embedding_Model):
             assert '.model' in path_or_model
             self.model = Word2Vec.load(path_or_model)
             self.config = util.load_config(path_or_model.replace('.model', '_config.json'))
+            self.dimension = self.model.vector_size
         elif isinstance(path_or_model, str):
             try:
                 self.model = gensim_api.load(path_or_model)
