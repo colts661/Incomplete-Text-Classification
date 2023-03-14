@@ -62,7 +62,7 @@ def run_model(dataset, model_type):
             "vector_size": 64, 
             "alpha": 0.01, 
             "window": 10, 
-            "min_count": 10, 
+            "min_count": 10 if dataset != "testdata" else 1, 
             "sample": 0.001, 
             "seed": 42, 
             "sg": 0, 
