@@ -47,9 +47,10 @@ def run_model(dataset, model_type):
     # get seed words
     seed_words = generation.get_seed_words(
         d,
-        k=(1 if dataset == 'testdata' else 10),
+        k=(3 if dataset == 'testdata' else 10),
         strict=(dataset == 'testdata')
     )
+    print(seed_words)
 
     if model_type == 'final':
         # find contexualized BERT embeddings
