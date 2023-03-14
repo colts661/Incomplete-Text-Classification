@@ -41,37 +41,28 @@ def run_model(dataset, model_type):
 
     if model_type == 'final':
         # find contexualized BERT embeddings
-        bert_embedding = word_embedding.BERT_Embedding(d)
-        bert_embedding.fit(tokenizer, model)
+        model = word_embedding.BERT_Embedding(d)
+        model.fit(tokenizer, model)
     elif model_type == 'baseline':
-        w2v = Word2Vec_Model(corpus=self.data.unlabeled_corpus, seedwords=seed_words)
+        model = word_embedding.Word2Vec_Model(d)
         
-        w2v_full_config = {
+        w2v_config = {
+            "vector_size": 64, 
             "alpha": 0.01, 
             "window": 10, 
             "min_count": 10, 
             "sample": 0.001, 
             "seed": 42, 
-            "sg": 0,
-            "hs": 1
+            "sg": 0, 
+            "hs": 1, 
+            "epochs": 2
         }
-        if w2v_config is None:
-            w2v_full_config["vector_size"] = 128
-            w2v_full_config["epoch"] = 125
-        else:
-            w2v_full_config.update(w2v_config)
-        
-        if w2v_model is not None and os.path.exists(w2v_model):
-            w2v.load_model(w2v_model)
-        else:
-            w2v.fit(**w2v_full_config)
-            w2v.save_model(f"artifacts/{self.data.name}_baseline_{now}.model")
-        
-        w2v_pred = w2v.predict()
+        model.fit(**w2v_config)
+        model.save_model(f"artifacts/{dataset}_baseline_{now}.model")
 
     # get doc/class representations
-    doc_rep = bert_embedding.get_document_embeddings()
-    class_rep = bert_embedding.get_class_embeddings(seed_words)
+    doc_rep = model.get_document_embeddings()
+    class_rep = model.get_class_embeddings(seed_words)
 
     if model_type == 'final':
         # run PCA
