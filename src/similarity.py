@@ -104,7 +104,7 @@ def display_vectors(data: data.Data, reps, idx, pca_dim=50, tsne_perp=30):
 
     # t-SNE visualization transformation
     tsne = Dimensionality_Reduction('tsne')
-    tsne_rep = tsne.fit_transform(reps, dimension=2, perplexity=tsne_perp)
+    tsne_rep = tsne.fit_transform(pca_rep, dimension=2, perplexity=tsne_perp)
 
     # preparation
     unconfident_truth = data.unlabeled_labels[idx]
