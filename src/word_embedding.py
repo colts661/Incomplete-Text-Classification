@@ -21,9 +21,6 @@ from gensim.models import Word2Vec
 from gensim.models.callbacks import CallbackAny2Vec
 import gensim.downloader as gensim_api
 
-# fasttext
-import fasttext
-
 # BERT packages
 import torch
 
@@ -146,61 +143,6 @@ class Word2Vec_Callback(CallbackAny2Vec):
         self.epoch += 1
         if self.epoch % 5 == 0:
             print(f'Epoch: {self.epoch}')
-
-
-class FastText_Model(Word_Embedding_Model):
-    """
-    FastText model that embraces word piece tokenization
-    """
-
-    def fit(self, file_path, **config):
-        """
-        Train the fasttext unsupervised model using config. In this model,
-        the corpus has to be a preprocessed text file
-        """
-        self.config = config
-        self.model = fasttext.train_unsupervised(file_path, **config)
-        self.dimension = self.model.get_dimension()
-    
-    def save_model(self, out_path, suffix='.bin'):
-        return super().save_model(out_path, suffix)
-
-    def load_model(self, model):
-        if os.path.exists(model):
-            assert '.bin' in model
-            self.model = fasttext.load_model(model)
-            self.config = util.load_config(model.replace('.bin', '_config.json'))
-            self.model.vector_size = self.config['dim']
-        else:
-            raise FileNotFoundError('Model or path to model not found')
-
-    def get_word_embedding(self, word):
-        self.check_fitted()
-        return self.model.get_word_vector(word)
-
-    def get_document_embedding(self, document):
-        self.check_fitted()
-        return self.model.get_sentence_vector(' '.join(document))
-    
-    def get_document_embeddings(self):
-        doc_rep = np.empty((len(self.corpus), self.dimension))
-        for i, doc in tqdm(
-            enumerate(self.corpus), 
-            "Finding Document Representations"
-        ):
-            embed = self.get_document_embedding(doc)
-            if embed is not None:
-                doc_rep[i] = embed
-        return doc_rep
-    
-    def get_class_embeddings(self, seed_words: dict) -> dict:
-        print("Finding Class Representations\n")
-        class_rep = dict()
-        for cls, seeds in tqdm(seed_words.items()):
-            embed = self.get_document_embedding(seeds)
-            if embed is not None:
-                class_rep[cls] = embed
-        return class_rep
 
 
 class BERT_Embedding(Word_Embedding_Model):

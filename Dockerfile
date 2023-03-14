@@ -13,7 +13,9 @@ RUN apt update
 # install packages using notebook user
 USER jovyan
 
-RUN pip install transformers[torch] gensim threadpoolctl==3.1.0 fasttext
+RUN pip install numpy==1.22.0 threadpoolctl==3.1.0
+RUN pip install scipy==1.10.0
+RUN pip install transformers[torch] gensim
 RUN pip install wordcloud openai backoff
 
 # Override command to disable running jupyter notebook at launch
