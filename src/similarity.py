@@ -47,8 +47,8 @@ class CosineSimilarityModel(torch.nn.Module):
 
 
 def get_cosine_similarity_batched(data: data.Data, doc_mtx, cls_mtx, self_sim=False, batch_size=32, top_k=8):
-    if isinstance(doc_mtx, dict):
-        doc_mtx = np.vstack([doc_mtx[c] for c in data.existing_labels])
+    if isinstance(cls_mtx, dict):
+        cls_mtx = np.vstack([cls_mtx[c] for c in data.existing_labels])
     rep_dataset = RepDataset(doc_mtx)
     dataloader = DataLoader(rep_dataset, batch_size=batch_size)
     
