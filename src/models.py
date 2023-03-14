@@ -59,13 +59,13 @@ def run_model(dataset, model_type):
         model_pipeline = word_embedding.Word2Vec_Model(d)
         
         if dataset == 'testdata':
-            print("FOUND BETTER CONFIG")
             w2v_config = {
                 'vector_size': 16,
                 'epochs': 2,
                 'window': 3,
                 'min_count': 1
             }
+            model_pipeline.load_model('glove-twitter-25')
         else:
             w2v_config = {
                 "vector_size": 64, 
@@ -78,8 +78,8 @@ def run_model(dataset, model_type):
                 "hs": 1, 
                 "epochs": 2
             }
-        model_pipeline.fit(**w2v_config)
-        model_pipeline.save_model(f"artifacts/{dataset}_baseline_{now}.model")
+            model_pipeline.fit(**w2v_config)
+            model_pipeline.save_model(f"artifacts/{dataset}_baseline_{now}.model")
 
     # get doc/class representations
     doc_rep = model_pipeline.get_document_embeddings()
