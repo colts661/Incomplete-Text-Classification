@@ -3,11 +3,11 @@
 In this project, we explore the **I**n**c**omplete **T**ext **C**lassification (IC-TC) setting. We aim to design a text classification model that could suggest class names not belonging to the training corpus to unseen documents, and classify documents into a full set of class names.
 
 <div style="display:flex;">
-    <div style="width:300%;">
+    <div style="width:100%;">
         Authors: Luning Yang, Yacun Wang<br>Mentor: Jingbo Shang
     </div>
     <div style="float:right">
-        <img width="55%" src="others/HDSI.png" alt="Logo">
+        <img width="25%" src="others/HDSI.png" alt="Logo">
     </div>
 </div>
 
