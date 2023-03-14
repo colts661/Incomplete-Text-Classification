@@ -73,7 +73,7 @@ def plot_max_similarity(max_similarity):
     return fig
 
 
-def confidence_split(max_sim, argmax_sim, data: data.Data, rep, threshold=0.1):
+def confidence_split(max_sim, argmax_sim, data: data.Data, doc_rep, threshold=0.1):
     """
     Get confident predictions, and unconfident corpus
     """
@@ -83,7 +83,7 @@ def confidence_split(max_sim, argmax_sim, data: data.Data, rep, threshold=0.1):
     conf_idxs = np.argwhere(~unconfident).flatten()
     conf_pred = argmax_sim[conf_idxs]
     unconf_idxs = np.argwhere(unconfident).flatten()
-    unconf_reps = rep[len(data.labeled_labels)+unconf_idxs]
+    unconf_reps = doc_rep[len(data.labeled_labels)+unconf_idxs]
     return {
         'confident': pd.DataFrame(
             {'sentence': conf_docs, 'predictions': conf_pred}, 

@@ -275,7 +275,7 @@ class BERT_Embedding(Word_Embedding_Model):
         # Evaluate the model in batch mode
         embeddings = []
         with torch.no_grad():
-            for sent in tqdm(self.corpus):
+            for sent in tqdm(self.corpus, "Finding Document Embeddings"):
                 one_sent = [self.model[w] if w in self.model else np.zeros(768) for w in sent.split(' ')]
                 embeddings.append(torch.tensor(np.vstack(one_sent).mean(axis=0)).float().to(util.DEVICE))
 

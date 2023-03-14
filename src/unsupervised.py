@@ -86,3 +86,12 @@ class Dimensionality_Reduction:
         
         # fit
         return self.model.fit_transform(rep)
+    
+    def transform(self, rep):
+        if isinstance(rep, dict):
+            low_dim_rep = dict()
+            for cls, one_rep in rep.items():
+                low_dim_rep[cls] = self.model.transform(one_rep)
+            return low_dim_rep
+        else:
+            return self.model.transform(rep)
