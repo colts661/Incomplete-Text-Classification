@@ -81,7 +81,7 @@ def confidence_split(max_sim, argmax_sim, data: data.Data, doc_rep, threshold=0.
     conf_docs = [' '.join(doc) for doc, sim in zip(data.unlabeled_corpus, unconfident) if not sim]
     unconf_docs = {idx: doc for idx, (doc, sim) in enumerate(zip(data.unlabeled_corpus, unconfident)) if sim}
     conf_idxs = np.argwhere(~unconfident).flatten()
-    conf_pred = argmax_sim[conf_idxs]
+    conf_pred = [data.existing_labels[i] for i in argmax_sim[conf_idxs]]
     unconf_idxs = np.argwhere(unconfident).flatten()
     unconf_reps = doc_rep[len(data.labeled_labels)+unconf_idxs]
     return {

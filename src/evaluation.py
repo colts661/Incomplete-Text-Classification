@@ -16,9 +16,7 @@ class Evaluation:
     def __init__(self, data: data.Data, predictions, new_labels):
         assert len(data.unlabeled_labels) == len(predictions)
         self.data = data
-        self.full_df = pd.DataFrame(
-            {'predictions': predictions, 'truth': data.unlabeled_labels}
-        )
+        self.full_df = predictions.assign(truth=data.unlabeled_labels)
         self.new_labels = new_labels
 
         # existing labels: take existing labels from ground truth
