@@ -86,6 +86,7 @@ class Word2Vec_Model(Word_Embedding_Model):
         elif isinstance(path_or_model, str):
             try:
                 self.model = gensim_api.load(path_or_model)
+                self.dimension = self.model.vector_size
             except ValueError:
                 pass
         else:
