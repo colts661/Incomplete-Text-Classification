@@ -244,8 +244,8 @@ class BERT_Embedding(Word_Embedding_Model):
             self.model[k] = word_rep[k]/word_count[k]
         
         # save intermediate files
-        vocab_words = list(self.word_avg.keys())
-        static_word_representations = list(self.word_avg.values())
+        vocab_words = list(self.model.keys())
+        static_word_representations = list(self.model.values())
         vocab_occurrence = list(word_count.values())
 
         util.write_pickle(
