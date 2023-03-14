@@ -20,7 +20,7 @@ def run_model(dataset, model_type):
     now = datetime.now().strftime('%Y-%m-%d')
     
     # load data
-    d = Data('../data', dataset)
+    d = Data('data', dataset)
     d.process_corpus()
     d.process_labels()
 
