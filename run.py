@@ -6,7 +6,7 @@ sys.path.insert(0, 'src')
 
 from util import *
 from data import Data
-from baseline_model import *
+from models import *
 
 
 def parse() -> argparse.Namespace:

@@ -1,5 +1,5 @@
 """
-A collection of models
+A collection of word embedding models
 """
 
 # basic packages
@@ -9,32 +9,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # project dependencies
-from data import *
-from util import *
+import data
+import util
 
 # sklearn
-from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
-from sklearn.cluster import KMeans
-from sklearn.mixture import GaussianMixture
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 
 # Word2Vec packages
 from gensim.utils import tokenize
 from gensim.models import Word2Vec
 from gensim.models.callbacks import CallbackAny2Vec
-
-# GloVe packages
-import glove
-from glove import Glove
-from glove import Corpus
+import gensim.downloader as gensim_api
 
 # fasttext
 import fasttext
 
+# BERT packages
+import torch
+
 # misc
+import os
+import string
 from tqdm import tqdm
+from nltk.stem.snowball import EnglishStemmer
 
 
 class Word_Embedding_Model:
@@ -42,87 +39,21 @@ class Word_Embedding_Model:
     General word embedding model. Needs to be inherited
     """
 
-    def __init__(self, corpus, labels=None, seedwords=None):
-        self.corpus = corpus
-        
-        if labels and seedwords is None:  # seed word set to class name only
-            self.labels = labels
-            self.pred_to_label = np.vectorize(lambda idx: self.labels[idx])
-            self.seedwords = {s: [s] for s in self.labels}
-        if seedwords and labels is None:
-            self.seedwords = seedwords
-            self.labels = list(self.seedwords)
-            self.pred_to_label = np.vectorize(lambda idx: self.labels[idx])            
+    def __init__(self, data: data.Data):
+        self.data = data
+        self.corpus = self.data.full_corpus           
     
     def fit(self, **config):
         raise NotImplementedError
     
     def load_model(self, path_or_model):
         raise ValueError('This model does not support loading')
-    
-    def get_word_embedding(self, word):
-        raise NotImplementedError
 
-    def get_document_embedding(self, words):
+    def get_document_embeddings(self):
         raise NotImplementedError
     
-    def predict(self):
-        self.check_fitted()
-
-        # find representations
-        self.doc_rep = np.empty((len(self.corpus), self.model.vector_size))
-        self.label_rep = np.empty((len(self.labels), self.model.vector_size))
-
-        for i, doc in tqdm(
-            enumerate(self.corpus), 
-            "Finding Document Representations"
-        ):
-            embed = self.get_document_embedding(doc)
-            if embed is not None:
-                self.doc_rep[i] = embed
-    
-        for i, seeds in tqdm(
-            enumerate(self.seedwords.values()), 
-            "Finding Label Representations"
-        ):
-            embed = self.get_document_embedding(seeds)
-            if embed is not None:
-                self.label_rep[i] = embed
-        
-        # find relevance
-        self.relevance = np.empty((len(self.corpus), len(self.labels)))
-
-        for i, doc in tqdm(enumerate(self.corpus), "Finding Similarity"):
-            for j, label in enumerate(self.seedwords):
-                self.relevance[i][j] = cosine_similarity(
-                    self.doc_rep[i], self.label_rep[j]
-                )
-        
-        # predict
-        self.predictions = self.pred_to_label(self.relevance.argmax(axis=1))
-        return self.predictions
-
-    def get_max_sim_distribution(self):
-        return pd.Series(self.relevance.max(axis=1)).plot(kind='hist')
-    
-    def confidence_split(self, threshold=0.1):
-        """
-        Get confident predictions, and unconfident corpus
-        """
-        unconfident = self.relevance.max(axis=1) < threshold
-        conf_docs = [' '.join(doc) for doc, sim in zip(self.corpus, unconfident) if not sim]
-        unconf_docs = [doc for doc, sim in zip(self.corpus, unconfident) if sim]
-        conf_idxs = np.argwhere(~unconfident).flatten()
-        conf_pred = self.predictions[conf_idxs]
-        unconf_idxs = np.argwhere(unconfident).flatten()
-        unconf_reps = self.doc_rep[unconfident]
-        return {
-            'confident': pd.DataFrame(
-                {'sentence': conf_docs, 'predictions': conf_pred}, 
-                index=conf_idxs
-            ),
-            'unconfident': (unconf_docs, unconf_idxs, unconf_reps)
-        }
+    def get_class_embeddings(self, seed_words):
+        raise NotImplementedError
     
     def check_fitted(self):
         if not hasattr(self, "model"):
@@ -130,8 +61,11 @@ class Word_Embedding_Model:
     
     def save_model(self, out_path, suffix='.model'):
         assert suffix in out_path
-        self.model.save(out_path)
-        write_config(self.config, path=out_path.replace(suffix, '_config.json'))
+        if isinstance(self.model, dict):
+            util.write_pickle(out_path, self.model)
+        else:
+            self.model.save(out_path)
+        util.write_config(self.config, path=out_path.replace(suffix, '_config.json'))
 
 
 class Word2Vec_Model(Word_Embedding_Model):
@@ -144,12 +78,13 @@ class Word2Vec_Model(Word_Embedding_Model):
         """
         self.config = config
         self.model = Word2Vec(self.corpus, **config, callbacks=[Word2Vec_Callback()])
+        self.dimension = config['vector_size'] if 'vector_size' in config else 100
 
     def load_model(self, path_or_model):
         if os.path.exists(path_or_model):
             assert '.model' in path_or_model
             self.model = Word2Vec.load(path_or_model)
-            self.config = load_config(path_or_model.replace('.model', '_config.json'))
+            self.config = util.load_config(path_or_model.replace('.model', '_config.json'))
         elif isinstance(path_or_model, str):
             try:
                 self.model = gensim_api.load(path_or_model)
@@ -172,15 +107,35 @@ class Word2Vec_Model(Word_Embedding_Model):
             words = word.strip().split('_')
             return self.get_document_embedding(words)
 
-    def get_document_embedding(self, words):
+    def get_document_embedding(self, document):
         lst = []
-        for w in words:
+        for w in document:
             w_emb = self.get_word_embedding(w)
             if w_emb is not None:
                 lst.append(w_emb)
         if not lst:
             return
         return np.vstack(lst).mean(axis=0)
+    
+    def get_document_embeddings(self):
+        doc_rep = np.empty((len(self.corpus), self.dimension))
+        for i, doc in tqdm(
+            enumerate(self.corpus), 
+            "Finding Document Representations"
+        ):
+            embed = self.get_document_embedding(doc)
+            if embed is not None:
+                doc_rep[i] = embed
+        return doc_rep
+    
+    def get_class_embeddings(self, seed_words: dict) -> dict:
+        print("Finding Class Representations\n")
+        class_rep = dict()
+        for cls, seeds in tqdm(seed_words.items()):
+            embed = self.get_document_embedding(seeds)
+            if embed is not None:
+                class_rep[cls] = embed
+        return class_rep
 
 
 class Word2Vec_Callback(CallbackAny2Vec):
@@ -188,35 +143,16 @@ class Word2Vec_Callback(CallbackAny2Vec):
         self.epoch = 0
 
     def on_epoch_end(self, model):
-        # loss = model.get_latest_training_loss()
         self.epoch += 1
         if self.epoch % 5 == 0:
             print(f'Epoch: {self.epoch}')
 
 
-class GloVe_Model(Word_Embedding_Model):
-    def fit(self, **config):
-        """
-        Train the GloVe model using config in model.
-        TODO: Change config to fit into GloVe model inputs
-        """
-        self.config = config
-        corpus = Corpus()
-        corpus.fit(self.data.unlabeled_corpus, window=10)
-        self.model = Glove(no_components=128, random_state=42) 
-        self.model.fit(corpus.matrix, epochs=150, no_threads=4, verbose=True)
-        self.model.add_dictionary(corpus.dictionary)
-
-    def load_model(self, model):
-        if os.path.exists(model):
-            assert '.model' in model
-            self.model = Glove.load(model)
-            self.config = load_config(model.replace('.model', '_config.json'))
-        else:
-            raise FileNotFoundError('Model or path to model not found')
-
-
 class FastText_Model(Word_Embedding_Model):
+    """
+    FastText model that embraces word piece tokenization
+    """
+
     def fit(self, file_path, **config):
         """
         Train the fasttext unsupervised model using config. In this model,
@@ -224,6 +160,7 @@ class FastText_Model(Word_Embedding_Model):
         """
         self.config = config
         self.model = fasttext.train_unsupervised(file_path, **config)
+        self.dimension = self.model.get_dimension()
     
     def save_model(self, out_path, suffix='.bin'):
         return super().save_model(out_path, suffix)
@@ -232,7 +169,7 @@ class FastText_Model(Word_Embedding_Model):
         if os.path.exists(model):
             assert '.bin' in model
             self.model = fasttext.load_model(model)
-            self.config = load_config(model.replace('.bin', '_config.json'))
+            self.config = util.load_config(model.replace('.bin', '_config.json'))
             self.model.vector_size = self.config['dim']
         else:
             raise FileNotFoundError('Model or path to model not found')
@@ -241,6 +178,205 @@ class FastText_Model(Word_Embedding_Model):
         self.check_fitted()
         return self.model.get_word_vector(word)
 
-    def get_document_embedding(self, words):
+    def get_document_embedding(self, document):
         self.check_fitted()
-        return self.model.get_sentence_vector(' '.join(words))
+        return self.model.get_sentence_vector(' '.join(document))
+    
+    def get_document_embeddings(self):
+        doc_rep = np.empty((len(self.corpus), self.dimension))
+        for i, doc in tqdm(
+            enumerate(self.corpus), 
+            "Finding Document Representations"
+        ):
+            embed = self.get_document_embedding(doc)
+            if embed is not None:
+                doc_rep[i] = embed
+        return doc_rep
+    
+    def get_class_embeddings(self, seed_words: dict) -> dict:
+        print("Finding Class Representations\n")
+        class_rep = dict()
+        for cls, seeds in tqdm(seed_words.items()):
+            embed = self.get_document_embedding(seeds)
+            if embed is not None:
+                class_rep[cls] = embed
+        return class_rep
+
+
+class BERT_Embedding(Word_Embedding_Model):
+    """
+    Contextualized BERT Embedding. Code adapted from https://github.com/ZihanWangKi/XClass
+    """
+    def fit(self, tokenizer, model):
+        """
+        Find contextualized word embedding. 
+        """
+        self.dimension = model.config.hidden_size
+        # get counts to eliminate words
+        tokenization_info = []
+        counts = Counter()
+        for text in tqdm(self.corpus, "Obtaining Counts"):
+            tokenized_text, tokenized_to_id_indicies, tokenids_chunks = self.prepare_sentence(tokenizer, text)
+            counts.update(word.translate(str.maketrans('','', string.punctuation)) for word in tokenized_text)
+        del counts['']
+
+        # get all occurrences of contextualized words
+        updated_counts = {k: c for k, c in counts.items() if c >= 5}
+        word_rep = {}
+        word_count = {}
+        for text in tqdm(self.corpus, "Collecting Contextualized Embeddings"):
+            tokenized_text, tokenized_to_id_indicies, tokenids_chunks = self.prepare_sentence(tokenizer, text)
+            tokenization_info.append((tokenized_text, tokenized_to_id_indicies, tokenids_chunks))
+            contextualized_word_representations = self.handle_sentence(model, 12, tokenized_text,
+                                            tokenized_to_id_indicies, tokenids_chunks)
+            for i in range(len(tokenized_text)):
+                word = tokenized_text[i]
+                if word in updated_counts.keys():
+                    if word not in word_rep:
+                        word_rep[word] = 0
+                        word_count[word] = 0
+                    word_rep[word] += contextualized_word_representations[i]
+                    word_count[word] += 1
+
+        # average occurrences
+        self.model = {}
+        for k,v in tqdm(word_rep.items(), "Computing Word Embeddings"):
+            self.model[k] = word_rep[k]/word_count[k]
+        
+        # save intermediate files
+        vocab_words = list(self.word_avg.keys())
+        static_word_representations = list(self.word_avg.values())
+        vocab_occurrence = list(word_count.values())
+
+        util.write_pickle(
+            os.path.join(self.data.processed_path, f"tokenization_lm-uncased-12.pk"),
+            {"tokenization_info": tokenization_info}
+        )
+
+        util.write_pickle(
+            os.path.join(self.data.processed_path, f"static_repr_lm-uncased-12.pk"),
+            {
+                "static_word_representations": static_word_representations,
+                "vocab_words": vocab_words,
+                "word_to_index": {v: k for k, v in enumerate(vocab_words)},
+                "vocab_occurrence": vocab_occurrence,
+            }
+        )
+        
+    def get_document_embeddings(self):
+        try: # get fitted word embeddings
+            self.check_fitted()
+        except NotFittedError:
+            vocab = util.read_pickle(os.path.join(data.processed_path, f"static_repr_lm-uncased-12.pk"))
+            static_word_representations = vocab["static_word_representations"]
+            vocab_words = vocab["vocab_words"]
+            self.model = {w: rep for w, rep in zip(vocab_words, static_word_representations)}
+   
+        # Evaluate the model in batch mode
+        embeddings = []
+        with torch.no_grad():
+            for sent in tqdm(self.corpus):
+                one_sent = [self.model[w] if w in self.model else np.zeros(768) for w in sent.split(' ')]
+                embeddings.append(torch.tensor(np.vstack(one_sent).mean(axis=0)).float().to(util.DEVICE))
+
+        # Concatenate the embeddings   
+        return torch.vstack(embeddings)
+
+    def get_class_embeddings(self, seed_words: dict) -> dict:
+        class_embeddings = {}
+        for cls, seeds in seed_words.items():
+            one_class_embed = []
+            for seed_word in seeds:
+                one_class_embed.append(self.model[seed_word])
+            class_embeddings[cls] = np.vstack(one_class_embed).mean(axis=0)
+        return class_embeddings
+        
+
+    def prepare_sentence(self, tokenizer, text):
+        # setting for BERT
+        model_max_tokens = 512
+        has_sos_eos = True
+        ######################
+        max_tokens = model_max_tokens
+        if has_sos_eos:
+            max_tokens -= 2
+        sliding_window_size = max_tokens // 2
+
+        if not hasattr(self.prepare_sentence, "sos_id"):
+            self.prepare_sentence.sos_id, self.prepare_sentence.eos_id = tokenizer.encode("", add_special_tokens=True)
+            print(self.prepare_sentence.sos_id, self.prepare_sentence.eos_id)
+
+        tokenized_text = tokenizer.basic_tokenizer.tokenize(text, never_split=tokenizer.all_special_tokens)
+        tokenized_to_id_indicies = []
+
+        tokenids_chunks = []
+        tokenids_chunk = []
+
+        for index, token in enumerate(tokenized_text + [None]):
+            if token is not None:
+                tokens = tokenizer.wordpiece_tokenizer.tokenize(token)
+            if token is None or len(tokenids_chunk) + len(tokens) > max_tokens:
+                tokenids_chunks.append([self.prepare_sentence.sos_id] + tokenids_chunk + [self.prepare_sentence.eos_id])
+                if sliding_window_size > 0:
+                    tokenids_chunk = tokenids_chunk[-sliding_window_size:]
+                else:
+                    tokenids_chunk = []
+            if token is not None:
+                tokenized_to_id_indicies.append((len(tokenids_chunks),
+                                                len(tokenids_chunk),
+                                                len(tokenids_chunk) + len(tokens)))
+                tokenids_chunk.extend(tokenizer.convert_tokens_to_ids(tokens))
+
+        return tokenized_text, tokenized_to_id_indicies, tokenids_chunks
+
+
+    def sentence_encode(self, tokens_id, model, layer):
+        input_ids = torch.tensor([tokens_id], device=model.device)
+
+        with torch.no_grad():
+            hidden_states = model(input_ids)
+        all_layer_outputs = hidden_states[2]
+
+        layer_embedding = util.tensor_to_numpy(all_layer_outputs[layer].squeeze(0))[1: -1]
+        return layer_embedding
+
+
+    def sentence_to_wordtoken_embeddings(self, layer_embeddings, tokenized_text, tokenized_to_id_indicies):
+        word_embeddings = []
+        for text, (chunk_index, start_index, end_index) in zip(tokenized_text, tokenized_to_id_indicies):
+            word_embeddings.append(np.average(layer_embeddings[chunk_index][start_index: end_index], axis=0))
+        assert len(word_embeddings) == len(tokenized_text)
+        return np.array(word_embeddings)
+
+
+    def handle_sentence(self, model, layer, tokenized_text, tokenized_to_id_indicies, tokenids_chunks):
+        layer_embeddings = [
+            self.sentence_encode(tokenids_chunk, model, layer) for tokenids_chunk in tokenids_chunks
+        ]
+        word_embeddings = self.sentence_to_wordtoken_embeddings(
+            layer_embeddings, tokenized_text, tokenized_to_id_indicies
+        )
+        return word_embeddings
+
+
+    def collect_vocab(self, token_list, representation, vocab):
+        assert len(token_list) == len(representation)
+        for token, repre in zip(token_list, representation):
+            if token not in vocab:
+                vocab[token] = []
+            vocab[token].append(repre)
+
+
+    def estimate_static(self, vocab, vocab_min_occurrence):
+        static_word_representation = []
+        vocab_words = []
+        vocab_occurrence = []
+        for word, repr_list in tqdm(vocab.items(), total=len(vocab)):
+            if len(repr_list) < vocab_min_occurrence:
+                continue
+            vocab_words.append(word)
+            vocab_occurrence.append(len(repr_list))
+            static_word_representation.append(np.average(repr_list, axis=0))
+        static_word_representation = np.array(static_word_representation)
+        print(f"Saved {len(static_word_representation)}/{len(vocab)} words.")
+        return static_word_representation, vocab_words, vocab_occurrence

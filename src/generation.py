@@ -1,12 +1,21 @@
+"""
+Seed Word/Label Generation Module
+"""
+
 from collections import Counter
 import numpy as np
 import pandas as pd
+import re
+import openai
+import backoff
+import string
 
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.feature_extraction.text import (
     CountVectorizer, TfidfVectorizer,
     ENGLISH_STOP_WORDS
 )
+import data
 
 class TF_IDF_Model:
     """
@@ -102,3 +111,75 @@ class LI_cTF_IDF_Model(TF_IDF_Model):
         c_TF = (assignment_mtx @ freq_mtx).multiply(doc_freq).tanh()
         IDF = np.log(freq_mtx.shape[0] / freq_mtx.sum(axis=0))
         self.values_matrix = LI.multiply(c_TF).multiply(IDF).power(1/3).tocsr()
+
+
+def get_seed_words(data: data.Data, k=10):
+    df_labeled = pd.DataFrame({'sentence': [
+        ' '.join(doc) for doc in data.labeled_corpus
+    ], 'label': data.labeled_labels})
+
+    tfidf = TF_IDF_Model()
+    tfidf.fit_transform(df_labeled)
+    return tfidf.get_top_dict(k=k, has_label=False)
+
+
+def get_li_tfidf_class_label(data: data.Data, unconfident_idx, unconfident_docs, cluster_results):
+    df_new_classes = pd.DataFrame({'sentence': [
+        ' '.join(doc) for doc in unconfident_docs.values()
+    ], 'label': cluster_results}, index=unconfident_idx)
+
+    li_ctf_idf_clusters = LI_cTF_IDF_Model()
+    li_ctf_idf_clusters.fit_transform(df_new_classes)
+    cluster_labels = li_ctf_idf_clusters.get_top_dict(k=8, has_label=False)
+    predict_cluster_word_tfidf = {cluster_id: top[0] for cluster_id, top in cluster_labels.items()}
+    return predict_cluster_word_tfidf
+
+
+@backoff.on_exception(backoff.expo, openai.error.RateLimitError)
+def get_gpt_completion(prompt_type, content, seen_labels):
+    doc_prompt = "Generate a general topic for the following document. No header needed."
+    full_prompt_1 = "Use one generic topic word to describe the following list of topics."
+    full_prmopt_2 = f"Example labels: {', '.join(seen_labels)}."
+    full_prompt_3 = "The label should be with similar granuality of, but different from the examples."
+    full_prmopt_4 = "Your answer should limit to one single word."
+    
+    if prompt_type == 'doc':
+        prompt = doc_prompt
+    elif prompt_type == 'label':
+        prompt = full_prompt_1 + full_prmopt_2 + full_prompt_3 + full_prmopt_4
+    
+    response = openai.ChatCompletion.create(
+      model="gpt-3.5-turbo",
+      messages=[
+          {"role": "system", "content": "You are a helpful text summarizer and topic generator."},
+          {"role": "user", "content": prompt + content},
+      ]
+    )
+    
+    s = re.sub(pattern="\"|'", repl="", string=response.choices[0]['message']['content'])
+    return s.translate(str.maketrans("", "", string.punctuations))
+
+
+def get_gpt_label(data: data.Data, label_samples, unconfident_docs):
+    predict_cluster_label = {}
+    for cluster, doc_indices in label_samples.items():
+        all_topics = []
+        for idx, doc_idx in enumerate(doc_indices):
+            document = ' '.join(unconfident_docs[doc_idx])
+            all_topics.append(f'{idx+1}. ' + get_gpt_completion('doc', document, data.existing_labels))
+        
+        all_topics = '\n'.join(all_topics)
+        predict_cluster_label[cluster] = get_gpt_completion('label', all_topics, data.existing_labels)
+    return predict_cluster_label
+
+
+def get_full_prediction(df_new_classes, predict_cluster_label, confident_predictions):
+    new_predictions = df_new_classes.assign(
+        predictions=df_new_classes['label'].apply(lambda cid: predict_cluster_label[cid])
+    )
+    full_pred = pd.concat([
+        new_predictions[['sentence', 'predictions']], 
+        confident_predictions[['sentence', 'predictions']]
+    ]).sort_index()
+
+    return full_pred
