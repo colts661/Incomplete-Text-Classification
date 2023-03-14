@@ -91,7 +91,7 @@ class Dimensionality_Reduction:
         if isinstance(rep, dict):
             low_dim_rep = dict()
             for cls, one_rep in rep.items():
-                low_dim_rep[cls] = self.model.transform(one_rep)
+                low_dim_rep[cls] = self.model.transform(one_rep[np.newaxis, :])[0]
             return low_dim_rep
         else:
             return self.model.transform(rep)
