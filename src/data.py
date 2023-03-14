@@ -50,7 +50,7 @@ class Data:
 
         if load_config is None or load_config != data_config:
             print(f'Preprocessing Corpus: {self.name}')
-            self.df = util.read_pickle(open(os.path.join(self.raw_path, "df.pkl")))
+            self.df = util.read_pickle(os.path.join(self.raw_path, "df.pkl"))
             if remove_punctuation:
                 self.df['sentence'] = self.df['sentence'].str.replace('[^\w\s]', '', regex=True)
 
