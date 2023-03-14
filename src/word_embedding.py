@@ -226,12 +226,12 @@ class BERT_Embedding(Word_Embedding_Model):
 
     def get_class_embeddings(self, seed_words: dict) -> dict:
         class_embeddings = {}
-        for cls, seeds in seed_words.items():
+        for c, seeds in seed_words.items():
             one_class_embed = []
             for seed_word in seeds:
                 if seed_word in self.model:
                     one_class_embed.append(self.model[seed_word])
-            class_embeddings[cls] = np.vstack(one_class_embed).mean(axis=0)
+            class_embeddings[c] = np.vstack(one_class_embed).mean(axis=0)
         return class_embeddings
         
 

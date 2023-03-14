@@ -50,7 +50,6 @@ def run_model(dataset, model_type):
         k=(3 if dataset == 'testdata' else 10),
         strict=(dataset == 'testdata')
     )
-    print(seed_words)
 
     if model_type == 'final':
         # find contexualized BERT embeddings
@@ -76,6 +75,7 @@ def run_model(dataset, model_type):
     # get doc/class representations
     doc_rep = model_pipeline.get_document_embeddings()
     class_rep = model_pipeline.get_class_embeddings(seed_words)
+    print(class_rep)
 
     if model_type == 'final':
         # run PCA
