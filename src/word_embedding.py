@@ -303,8 +303,8 @@ class BERT_Embedding(Word_Embedding_Model):
         sliding_window_size = max_tokens // 2
 
         if not hasattr(self.prepare_sentence, "sos_id"):
-            self.prepare_sentence.sos_id, self.prepare_sentence.eos_id = tokenizer.encode("", add_special_tokens=True)
-            print(self.prepare_sentence.sos_id, self.prepare_sentence.eos_id)
+            self.sos_id, self.eos_id = tokenizer.encode("", add_special_tokens=True)
+            print(self.sos_id, self.eos_id)
 
         tokenized_text = tokenizer.basic_tokenizer.tokenize(text, never_split=tokenizer.all_special_tokens)
         tokenized_to_id_indicies = []
@@ -316,7 +316,7 @@ class BERT_Embedding(Word_Embedding_Model):
             if token is not None:
                 tokens = tokenizer.wordpiece_tokenizer.tokenize(token)
             if token is None or len(tokenids_chunk) + len(tokens) > max_tokens:
-                tokenids_chunks.append([self.prepare_sentence.sos_id] + tokenids_chunk + [self.prepare_sentence.eos_id])
+                tokenids_chunks.append([self.sos_id] + tokenids_chunk + [self.eos_id])
                 if sliding_window_size > 0:
                     tokenids_chunk = tokenids_chunk[-sliding_window_size:]
                 else:
