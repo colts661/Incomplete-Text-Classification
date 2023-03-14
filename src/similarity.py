@@ -78,9 +78,9 @@ def max_similarity_histogram(max_similarity):
     """
     cnts, bins = np.histogram(max_similarity)
     cumu_cnts = np.round(np.cumsum(cnts) / np.sum(cnts) * 100, 1)
-    show_bins = np.round(bins, 3)
+    show_bins = np.round(bins, 2)
     for c, b in zip(cumu_cnts, show_bins):
-        print(f"Percentage < {b}: {c}%")
+        print(f"Percentage < {round(b, 2)}: {c}%")
     print()
 
 
