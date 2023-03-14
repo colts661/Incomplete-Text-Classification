@@ -304,7 +304,6 @@ class BERT_Embedding(Word_Embedding_Model):
 
         if not hasattr(self.prepare_sentence, "sos_id"):
             self.sos_id, self.eos_id = tokenizer.encode("", add_special_tokens=True)
-            print(self.sos_id, self.eos_id)
 
         tokenized_text = tokenizer.basic_tokenizer.tokenize(text, never_split=tokenizer.all_special_tokens)
         tokenized_to_id_indicies = []
