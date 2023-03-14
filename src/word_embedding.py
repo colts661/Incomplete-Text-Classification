@@ -74,7 +74,7 @@ class Word2Vec_Model(Word_Embedding_Model):
         Train the Word2Vec model using config in model.
         """
         self.config = config
-        self.model = Word2Vec(self.corpus, **config, callbacks=[Word2Vec_Callback()])
+        self.model = Word2Vec(self.corpus, **config, callbacks=[Word2Vec_Callback()]).wv
         self.dimension = config['vector_size'] if 'vector_size' in config else 100
 
     def load_model(self, path_or_model):
@@ -95,12 +95,12 @@ class Word2Vec_Model(Word_Embedding_Model):
     def get_word_embedding(self, word):
         self.check_fitted()
         
-        if word in self.model.wv:
-            return self.model.wv[word]
+        if word in self.model:
+            return self.model[word]
         
         stemmer = EnglishStemmer()
-        if stemmer.stem(word) in self.model.wv:
-            return self.model.wv[stemmer.stem(word)]
+        if stemmer.stem(word) in self.model:
+            return self.model[stemmer.stem(word)]
         
         if '_' in word:
             words = word.strip().split('_')
