@@ -39,11 +39,11 @@ class Evaluation:
         """
         micro = f1_score(
             y_true=self.existing_label, y_pred=self.existing_pred, 
-            labels=list(self.existing_labels), average='micro'
+            labels=list(self.data.existing_labels), average='micro'
         )
         macro = f1_score(
             y_true=self.existing_label, y_pred=self.existing_pred, 
-            labels=list(self.existing_labels), average='macro'
+            labels=list(self.data.existing_labels), average='macro'
         )
         return {'micro_f1': round(micro, 3), 'macro_f1': round(macro, 3)}
 
@@ -52,7 +52,7 @@ class Evaluation:
         Evaluate the binary case: whether label is new. Only returns
         the precision, recall for the new labels.
         """
-        binary = self.full_df.isin(self.existing_labels).astype(int)
+        binary = self.full_df.isin(self.data.existing_labels).astype(int)
         prec, recall, _, _ = precision_recall_fscore_support(
             y_true=binary['truth'], y_pred=binary['predictions'],
             average=None
