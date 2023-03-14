@@ -116,9 +116,8 @@ def run_model(dataset, model_type):
 
     # run cluster
     print("Running Clustering")
-    if dataset != "testdata":
-        gmm = unsupervised.Clustering_Model('gmm', unconfident_rep, unconfident_idx)
-        gmm_results = gmm.fit_transform(n_classes=5 if dataset != "testdata" else 1)
+    gmm = unsupervised.Clustering_Model('gmm', unconfident_rep, unconfident_idx)
+    gmm_results = gmm.fit_transform(n_classes=5 if dataset != "testdata" else 1)
 
     # run label generation
     print("For time and cost purposes, run LI-TF-IDF Label generation")
